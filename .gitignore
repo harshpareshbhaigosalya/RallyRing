@@ -3,8 +3,8 @@ dist/
 .env
 *.log
 .DS_Store
-android/app/build/
-android/.gradle/
-android/app/*.keystore
-android/app/google-services.json
-service-account.json
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/app/*.keystore
+frontend/android/app/google-services.json
+backend/service-account.json
