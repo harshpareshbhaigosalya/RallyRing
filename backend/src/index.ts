@@ -32,12 +32,12 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     }
 }
 
-if (serviceAccount) {
+if (serviceAccount && admin.apps.length === 0) {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
-} else {
-    console.error("Firebase admin failed to initialize.");
+} else if (!serviceAccount) {
+    console.error("Firebase admin failed to initialize - missing credentials.");
 }
 
 const db = admin.firestore();
