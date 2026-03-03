@@ -17,12 +17,28 @@ app.get('/', (req, res) => {
 });
 
 // Firebase initialization
-const serviceAccountPath = path.join(__dirname, '../service-account.json');
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+let serviceAccount;
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Use environment variable in production
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+    // Fallback to local file in development
+    const serviceAccountPath = path.join(__dirname, '../service-account.json');
+    if (fs.existsSync(serviceAccountPath)) {
+        serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    } else {
+        console.error("FIREBASE_SERVICE_ACCOUNT env or service-account.json is missing.");
+    }
+}
+
+if (serviceAccount) {
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
+} else {
+    console.error("Firebase admin failed to initialize.");
+}
 
 const db = admin.firestore();
 const fcm = admin.messaging();
