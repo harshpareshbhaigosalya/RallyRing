@@ -1,0 +1,8 @@
+{
+    "name": "rally-ring-monorepo",
+    "private": true,
+    "workspaces": [
+        "frontend",
+        "backend"
+    ]
+}
