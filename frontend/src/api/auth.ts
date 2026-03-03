@@ -12,12 +12,12 @@ export const registerUser = async (name: string, fcmToken: string) => {
     }
 };
 
-export const triggerCall = async (groupId: string, callerId: string, groupName: string) => {
+export const triggerCall = async (groupId: string, callerId: string, groupName: string, purposeType: string = 'Rally') => {
     try {
-        const response = await axios.post(`${API_URL}/trigger-call`, { groupId, callerId, groupName });
+        const response = await axios.post(`${API_URL}/trigger-call`, { groupId, callerId, groupName, purposeType });
         return response.data;
-    } catch (error) {
-        console.error("Trigger call error:", error);
+    } catch (error: any) {
+        console.error("Trigger call error:", error.response?.data || error.message);
         throw error;
     }
 };

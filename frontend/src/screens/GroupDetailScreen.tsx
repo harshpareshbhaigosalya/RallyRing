@@ -9,12 +9,31 @@ const GroupDetailScreen = ({ route }: any) => {
     const { groupId } = route.params;
     const { user } = useStore();
     const [group, setGroup] = useState<any>(null);
-    const [members, setMembers] = useState<any[]>([]);
+    const [memberData, setMemberData] = useState<Record<string, string>>({});
     const [activeCall, setActiveCall] = useState<any>(null);
+    const [loadingCall, setLoadingCall] = useState(false);
 
     useEffect(() => {
         const unsubGroup = firestore().collection('groups').doc(groupId).onSnapshot(doc => {
-            setGroup(doc.data());
+            const data = doc.data();
+            setGroup(data);
+
+            // Fetch member names if not already fetched
+            if (data?.members) {
+                const members = data.members;
+                members.forEach(async (mId: string) => {
+                    if (!memberData[mId]) {
+                        try {
+                            const mDoc = await firestore().collection('users').doc(mId).get();
+                            if (mDoc.exists()) {
+                                setMemberData(prev => ({ ...prev, [mId]: mDoc.data()?.name || mId }));
+                            }
+                        } catch (err) {
+                            console.log("Error fetching user name:", mId, err);
+                        }
+                    }
+                });
+            }
         });
 
         const unsubCall = firestore()
@@ -27,18 +46,27 @@ const GroupDetailScreen = ({ route }: any) => {
                 } else {
                     setActiveCall(null);
                 }
-            });
+            }, error => console.error("Call listen error:", error));
 
         return () => { unsubGroup(); unsubCall(); };
     }, [groupId]);
 
     const handleTriggerCall = async () => {
         if (!user || !group) return;
+        setLoadingCall(true);
         try {
-            await triggerCall(groupId, user.uid, group.name);
-            Alert.alert("Call Triggered", "Members are being notified.");
-        } catch (e) {
-            Alert.alert("Error", "Could not trigger call.");
+            const res = await triggerCall(groupId, user.uid, group.name, 'Rally');
+            console.log("Call result:", res);
+            if (res.tokensTargeted === 0) {
+                Alert.alert("No Other Members", "None of your group members have registered for notifications yet.");
+            } else {
+                Alert.alert("Call Sent!", `Notifying ${res.tokensTargeted} active member(s).`);
+            }
+        } catch (e: any) {
+            console.error("Call error detail:", e.response?.data || e.message);
+            Alert.alert("Call Failed", e.response?.data?.error || "Check if backend is running.");
+        } finally {
+            setLoadingCall(false);
         }
     };
 
@@ -55,9 +83,15 @@ const GroupDetailScreen = ({ route }: any) => {
                     </Text>
                 </View>
             ) : (
-                <TouchableOpacity style={styles.callButton} onPress={handleTriggerCall}>
+                <TouchableOpacity
+                    style={[styles.callButton, loadingCall && { opacity: 0.7 }]}
+                    onPress={handleTriggerCall}
+                    disabled={loadingCall}
+                >
                     <PhoneCall color="white" size={24} />
-                    <Text style={styles.callButtonText}>START GROUP CALL</Text>
+                    <Text style={styles.callButtonText}>
+                        {loadingCall ? "TRIGGERING..." : "START RALLY CALL"}
+                    </Text>
                 </TouchableOpacity>
             )}
 
@@ -65,7 +99,9 @@ const GroupDetailScreen = ({ route }: any) => {
             <ScrollView>
                 {group?.members.map((m: string) => (
                     <View key={m} style={styles.memberItem}>
-                        <Text style={styles.memberText}>{m === user?.uid ? "You" : `User ${m}`}</Text>
+                        <Text style={styles.memberText}>
+                            {m === user?.uid ? `You (${memberData[m] || user.name})` : (memberData[m] || `User ${m}`)}
+                        </Text>
                         {activeCall?.responses[m] && (
                             <Text style={[styles.statusTag, { color: activeCall.responses[m] === 'accepted' ? '#4CAF50' : '#F44336' }]}>
                                 {activeCall.responses[m].toUpperCase()}

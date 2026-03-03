@@ -120,30 +120,50 @@ app.post('/trigger-call', async (req, res) => {
         }
 
         // 4. Send FCM Data-only message (High Priority)
-        // This triggers the Notifee full-screen intent on Android
+        let callerName = "Someone";
+        const callerDoc = memberDocs.docs.find(d => d.id === callerId);
+
+        if (callerDoc) {
+            callerName = callerDoc.data().name;
+        } else {
+            // Fallback: direct lookup if the IN query failed to include the caller
+            const directCallerDoc = await db.collection('users').doc(callerId).get();
+            if (directCallerDoc.exists) {
+                callerName = directCallerDoc.data()?.name || callerId;
+            }
+        }
+
         const message = {
             data: {
                 type: 'INCOMING_CALL',
                 callId,
                 groupId,
                 groupName,
-                callerName: memberDocs.docs.find(d => d.id === callerId)?.data().name || "Someone",
-                purposeType,
+                callerName,
+                purposeType: purposeType || 'Rally',
             },
             tokens: tokens,
             android: {
                 priority: 'high' as const,
-                ttl: 0, // Expire immediately if not delivered
+                ttl: 0,
             }
         };
 
         const response = await fcm.sendEachForMulticast(message);
-        console.log(`Successfully sent ${response.successCount} messages`);
+        console.log(`Successfully sent ${response.successCount} messages to ${tokens.length} tokens`);
 
-        res.status(200).send({ callId, successCount: response.successCount });
+        res.status(200).send({
+            callId,
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+            tokensTargeted: tokens.length
+        });
     } catch (error: any) {
         console.error("Error triggering call:", error);
-        res.status(500).send({ error: error.message });
+        res.status(500).send({
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
