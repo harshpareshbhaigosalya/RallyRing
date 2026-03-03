@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://rally-ring.vercel.app/';
+const API_URL = 'https://rally-ring.vercel.app';
 
 export const registerUser = async (name: string, fcmToken: string) => {
     try {

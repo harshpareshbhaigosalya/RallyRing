@@ -14,11 +14,21 @@ const RegisterScreen = ({ navigation }: any) => {
         setLoading(true);
         try {
             const token = await messaging().getToken();
+            console.log("FCM Token secured");
             const data = await registerUser(name, token);
-            setUser({ uid: data.uid, name, fcmToken: token });
-            // Navigation happens automatically if App.tsx watches store.user
-        } catch (error) {
-            Alert.alert("Registration Error", "Check if backend is running (Vercel/Local).");
+
+            if (data && data.uid) {
+                setUser({ uid: data.uid, name, fcmToken: token });
+                console.log("User registered with UID:", data.uid);
+            } else {
+                throw new Error("Backend did not return a valid user ID.");
+            }
+        } catch (error: any) {
+            console.error("Registration error:", error);
+            Alert.alert(
+                "Registration Failed",
+                error.message || "Please check your internet and if the backend is running."
+            );
         } finally {
             setLoading(false);
         }

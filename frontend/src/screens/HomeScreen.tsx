@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Share, Alert } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { useStore } from '../store/useStore';
 import { Plus, Users } from 'lucide-react-native';
@@ -8,19 +8,25 @@ const HomeScreen = ({ navigation }: any) => {
     const { user, groups, setGroups } = useStore();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !user.uid) return;
 
         // Listen for groups where user is a member
         const unsubscribe = firestore()
             .collection('groups')
             .where('members', 'array-contains', user.uid)
-            .onSnapshot(snapshot => {
-                const groupList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setGroups(groupList);
-            });
+            .onSnapshot(
+                snapshot => {
+                    const groupList = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setGroups(groupList);
+                },
+                error => {
+                    console.error("Firestore Error:", error);
+                    Alert.alert("Database Error", "Unable to connect to group list. " + error.message);
+                }
+            );
 
         return () => unsubscribe();
     }, [user]);
