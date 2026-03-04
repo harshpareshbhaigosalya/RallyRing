@@ -19,9 +19,9 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const callId = data.callId as string;
     const reason = data.reason || '';
 
-    // Channel v7: Critical Calling Channel with Custom Ringtone
+    // Channel v8: Ultimate High-Friction Call Channel
     const channelId = await notifee.createChannel({
-        id: 'rally-ring-v7',
+        id: 'rally-ring-v8',
         name: 'Urgent Squadron Calls',
         importance: 5 as any,
         sound: 'ringtone',
@@ -45,7 +45,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             autoCancel: false,
             loopSound: true,
             fullScreenIntent: {
-                id: 'default',
+                id: callId,
                 launchActivity: 'com.rallyring.MainActivity',
             },
             pressAction: { id: 'default', launchActivity: 'default' },

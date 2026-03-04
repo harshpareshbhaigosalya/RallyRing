@@ -183,12 +183,8 @@ app.post('/trigger-call', async (req, res) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
-                notification: {
-                    channelId: 'rally-ring-v7',
-                    priority: 'high' as const,
-                    visibility: 'public' as const,
-                    sound: 'ringtone',
-                }
+                // Removed notification block to enable data-only delivery
+                // which allows the client-side Notifee handler to control the UI
             }
         };
 
