@@ -37,7 +37,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         android: {
             channelId,
             category: AndroidCategory.CALL,
-            importance: AndroidImportance.HIGH,
+            importance: 5, // MAX
             priority: 'high',
             visibility: 1, // Public
             ongoing: true,

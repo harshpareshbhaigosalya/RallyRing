@@ -6,16 +6,30 @@ import messaging from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
 import { onMessageReceived } from './src/utils/notificationHandler';
 import { navigate } from './src/navigation/navigationUtils';
+import { useStore } from './src/store/useStore';
+import { updateToken } from './src/api/auth';
 
 const App = () => {
+  const { user } = useStore();
+
   useEffect(() => {
-    // 1. Request permission for Notifications (Android 13+)
-    const requestPermission = async () => {
+    // 1. Sync Messaging Token & Hierarchy
+    const setupMessaging = async () => {
       const authStatus = await messaging().requestPermission();
-      console.log('Permission status:', authStatus);
+      if (authStatus >= 1 && user?.uid) {
+        try {
+          const token = await messaging().getToken();
+          await updateToken(user.uid, token);
+        } catch (e) { }
+      }
     };
 
-    requestPermission();
+    setupMessaging();
+
+    // Listen for token refresh while app is running
+    const unsubscribeTokenRefresh = messaging().onTokenRefresh(token => {
+      if (user?.uid) updateToken(user.uid, token);
+    });
 
     // 2. Setup message listeners
     const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
@@ -25,7 +39,6 @@ const App = () => {
       // If it's a call, navigate to RingingScreen immediately if in foreground
       if (remoteMessage.data?.type === 'INCOMING_CALL') {
         const { callId, groupName, callerName, reason } = remoteMessage.data;
-        // Small delay to let firestore sync the new call session
         setTimeout(() => {
           navigate('Ringing', { callId, groupName, callerName, reason: (reason as string) || '' });
         }, 500);
@@ -47,8 +60,6 @@ const App = () => {
       const initial = await notifee.getInitialNotification();
       if (initial && initial.notification?.data?.callId) {
         const { callId, groupName, callerName, reason } = initial.notification.data;
-
-        // Wait up to 3 seconds for navigator to be ready
         let attempts = 0;
         const interval = setInterval(() => {
           if (navigate('Ringing', { callId, groupName, callerName, reason: reason || '' })) {
@@ -71,10 +82,11 @@ const App = () => {
     });
 
     return () => {
+      if (unsubscribeTokenRefresh) unsubscribeTokenRefresh();
       unsubscribeForeground();
       unsubscribeNotifee();
     };
-  }, []);
+  }, [user?.uid]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

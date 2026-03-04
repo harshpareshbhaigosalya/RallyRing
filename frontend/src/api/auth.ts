@@ -12,6 +12,12 @@ export const registerUser = async (name: string, fcmToken: string) => {
     }
 };
 
+export const updateToken = async (uid: string, fcmToken: string) => {
+    try {
+        await axios.post(`${API_URL}/update-token`, { uid, fcmToken });
+    } catch (e) { }
+};
+
 export const triggerCall = async (groupId: string, callerId: string, groupName: string, purposeType: string = 'Rally', targetUids: string[] = [], reason: string = '') => {
     try {
         const response = await axios.post(`${API_URL}/trigger-call`, { groupId, callerId, groupName, purposeType, targetUids, reason });

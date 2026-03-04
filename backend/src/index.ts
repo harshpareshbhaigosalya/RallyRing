@@ -166,6 +166,10 @@ app.post('/trigger-call', async (req, res) => {
         }
 
         const message = {
+            notification: {
+                title: `📞 RALLY: ${callerName}`,
+                body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
+            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -179,6 +183,12 @@ app.post('/trigger-call', async (req, res) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
+                notification: {
+                    channelId: 'rally-ring-v5',
+                    priority: 'high' as const,
+                    visibility: 'public' as const,
+                    sound: 'default',
+                }
             }
         };
 
@@ -234,6 +244,17 @@ app.post('/stop-call', async (req, res) => {
     } catch (error) {
         console.error("Stop call error:", error);
         res.status(500).send({ error: "Failed to stop call" });
+    }
+});
+
+app.post('/update-token', async (req, res) => {
+    try {
+        const { uid, fcmToken } = req.body;
+        if (!uid || !fcmToken) return res.status(400).send({ error: "Missing uid or fcmToken" });
+        await db.collection('users').doc(uid).update({ fcmToken });
+        res.status(200).send({ success: true });
+    } catch (error: any) {
+        res.status(500).send({ error: error.message });
     }
 });
 
