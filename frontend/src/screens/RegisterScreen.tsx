@@ -17,12 +17,12 @@ const RegisterScreen = ({ navigation }: any) => {
     const requestNotifications = async () => {
         setLoading(true);
         try {
-            // Use notifee for more direct Android 13+ permission request
+            // Step 1: Request permission for Notifications
             const settings = await notifee.requestPermission();
             if (settings.authorizationStatus >= 1) {
                 setPermissionStage(1);
             } else {
-                Alert.alert("Permission Required", "RallyRing cannot alert you without notifications. Please allow them to continue.");
+                Alert.alert("Permission Required", "RallyRing cannot alert you without notifications. Please allow them to hear when your squad needs you.");
             }
         } catch (e) {
             setPermissionStage(1);
@@ -34,6 +34,7 @@ const RegisterScreen = ({ navigation }: any) => {
     const requestBatteryExemption = async () => {
         setLoading(true);
         try {
+            // Step 2: Request Battery Optimization Bypass
             await notifee.openBatteryOptimizationSettings();
             setPermissionStage(2);
         } catch (e) {
@@ -46,13 +47,20 @@ const RegisterScreen = ({ navigation }: any) => {
     const requestOverlayPermission = async () => {
         setLoading(true);
         try {
-            // There is no direct API for overlay in RN, so we send to app settings
+            // Step 3: Overlay (Directly to Settings)
             Alert.alert(
-                "Final Step: Overlay",
-                "Please enable 'Display over other apps' in the settings page that opens. This allows the call screen to appear over your lock screen.",
-                [{ text: "Open Settings", onPress: () => Linking.openSettings() }]
+                "Final Step: Call Overlay",
+                "On the next screen, find 'RallyRing' and enable 'Display over other apps'. This allows the full-screen call to appear over your lock screen.",
+                [
+                    {
+                        text: "Understood, Open Settings",
+                        onPress: async () => {
+                            await Linking.openSettings();
+                            setShowPermissionWall(false);
+                        }
+                    }
+                ]
             );
-            setShowPermissionWall(false);
         } catch (e) {
             setShowPermissionWall(false);
         } finally {
@@ -92,10 +100,10 @@ const RegisterScreen = ({ navigation }: any) => {
     if (showPermissionWall) {
         return (
             <View style={styles.wallContainer}>
-                <View style={styles.statusBar}>
-                    <View style={[styles.statusDot, permissionStage >= 0 && styles.activeDot]} />
-                    <View style={[styles.statusDot, permissionStage >= 1 && styles.activeDot]} />
-                    <View style={[styles.statusDot, permissionStage >= 2 && styles.activeDot]} />
+                <View style={styles.progressHeader}>
+                    <View style={[styles.progressDot, permissionStage >= 0 && styles.activeDot]} />
+                    <View style={[styles.progressDot, permissionStage >= 1 && styles.activeDot]} />
+                    <View style={[styles.progressDot, permissionStage >= 2 && styles.activeDot]} />
                 </View>
 
                 <View style={styles.permissionBox}>
@@ -106,7 +114,7 @@ const RegisterScreen = ({ navigation }: any) => {
                             </View>
                             <Text style={styles.wallTitle}>Rally Alerts</Text>
                             <Text style={styles.wallText}>
-                                Allow notifications so you never miss an urgent rally from your squad.
+                                We need permission to play your ringtone for incoming calls. Click allow on the system popup.
                             </Text>
                             <TouchableOpacity style={styles.primeButton} onPress={requestNotifications} disabled={loading}>
                                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primeButtonText}>Allow Notifications</Text>}
@@ -119,9 +127,9 @@ const RegisterScreen = ({ navigation }: any) => {
                             <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 193, 7, 0.1)' }]}>
                                 <Zap color="#FFC107" size={44} />
                             </View>
-                            <Text style={styles.wallTitle}>Battery Bypass</Text>
+                            <Text style={styles.wallTitle}>No Interruptions</Text>
                             <Text style={styles.wallText}>
-                                RallyRing needs to run in the background. Set battery to 'Unrestricted' in the next screen.
+                                Android often silences apps to save battery. Set RallyRing to "Unrestricted" in the next screen.
                             </Text>
                             <TouchableOpacity style={[styles.primeButton, { backgroundColor: '#FFC107' }]} onPress={requestBatteryExemption} disabled={loading}>
                                 {loading ? <ActivityIndicator color="#000" /> : <Text style={[styles.primeButtonText, { color: '#000' }]}>Fix Battery Settings</Text>}
@@ -134,12 +142,12 @@ const RegisterScreen = ({ navigation }: any) => {
                             <View style={[styles.iconCircle, { backgroundColor: 'rgba(33, 150, 243, 0.1)' }]}>
                                 <Settings color="#2196F3" size={44} />
                             </View>
-                            <Text style={styles.wallTitle}>Full Screen Call</Text>
+                            <Text style={styles.wallTitle}>Call Screen</Text>
                             <Text style={styles.wallText}>
-                                To show calls on your lock screen, we need 'Overlay' permission. Enable it in App Settings.
+                                This allows the app to show the "Accept/Reject" screen even when your phone is locked.
                             </Text>
                             <TouchableOpacity style={[styles.primeButton, { backgroundColor: '#2196F3' }]} onPress={requestOverlayPermission} disabled={loading}>
-                                <Text style={styles.primeButtonText}>Open App Settings</Text>
+                                <Text style={styles.primeButtonText}>Enable Overlay</Text>
                             </TouchableOpacity>
                         </>
                     )}
@@ -152,8 +160,8 @@ const RegisterScreen = ({ navigation }: any) => {
         <View style={styles.container}>
             <View style={styles.titleContainer}>
                 <Text style={styles.appName}>RALLYRING</Text>
-                <Text style={styles.title}>Welcome!</Text>
-                <Text style={styles.subtitle}>Enter your name to start coordination</Text>
+                <Text style={styles.title}>All Set!</Text>
+                <Text style={styles.subtitle}>Enter your name to join the coordination</Text>
             </View>
 
             <View style={styles.form}>
@@ -177,7 +185,7 @@ const RegisterScreen = ({ navigation }: any) => {
                     onPress={handleRegister}
                     disabled={loading}
                 >
-                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Complete Setup</Text>}
+                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Start Rallying</Text>}
                 </TouchableOpacity>
             </View>
         </View>
@@ -187,22 +195,22 @@ const RegisterScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000', padding: 25, justifyContent: 'center' },
     wallContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', padding: 30 },
-    statusBar: { flexDirection: 'row', justifyContent: 'center', marginBottom: 30 },
-    statusDot: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#222', marginHorizontal: 5 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'center', marginBottom: 40 },
+    progressDot: { width: 35, height: 4, borderRadius: 2, backgroundColor: '#222', marginHorizontal: 5 },
     activeDot: { backgroundColor: '#7C3AED' },
-    permissionBox: { backgroundColor: '#111', borderRadius: 35, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: '#222', elevation: 20 },
+    permissionBox: { backgroundColor: '#111', borderRadius: 40, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: '#222', elevation: 20 },
     iconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(124, 58, 237, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 30 },
-    wallTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-    wallText: { color: '#888', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 40 },
-    primeButton: { backgroundColor: '#7C3AED', width: '100%', padding: 20, borderRadius: 18, alignItems: 'center' },
+    wallTitle: { color: '#fff', fontSize: 30, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+    wallText: { color: '#888', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 45 },
+    primeButton: { backgroundColor: '#7C3AED', width: '100%', padding: 20, borderRadius: 20, alignItems: 'center' },
     primeButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     titleContainer: { alignItems: 'center', marginBottom: 50 },
     appName: { color: '#7C3AED', fontSize: 14, fontWeight: 'bold', letterSpacing: 4, marginBottom: 10 },
     title: { fontSize: 36, color: '#fff', fontWeight: 'bold' },
-    subtitle: { fontSize: 16, color: '#666', marginTop: 8 },
+    subtitle: { fontSize: 16, color: '#666', marginTop: 8, textAlign: 'center' },
     form: { width: '100%' },
-    input: { backgroundColor: '#111', color: '#fff', padding: 20, borderRadius: 18, fontSize: 18, marginBottom: 15, borderWidth: 1, borderColor: '#222' },
-    button: { backgroundColor: '#7C3AED', padding: 20, borderRadius: 18, alignItems: 'center' },
+    input: { backgroundColor: '#111', color: '#fff', padding: 20, borderRadius: 20, fontSize: 18, marginBottom: 15, borderWidth: 1, borderColor: '#222' },
+    button: { backgroundColor: '#7C3AED', padding: 20, borderRadius: 20, alignItems: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
 });
 

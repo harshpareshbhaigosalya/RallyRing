@@ -19,15 +19,14 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const callId = data.callId as string;
     const reason = data.reason || '';
 
-    // MAX importance (5) for guaranteed full-screen and continuous ringing
+    // NEW channel v5: Using High Importance (4) for maximum hardware compatibility
     const channelId = await notifee.createChannel({
-        id: 'rally-calls-infinite-v2', // Changed ID to force update
-        name: 'Urgent Squadron Alerts',
-        importance: 5 as any,
-        sound: 'ringtone',
+        id: 'rally-ring-v5',
+        name: 'Squad Coordination Alerts',
+        importance: AndroidImportance.HIGH,
+        sound: 'default',
         vibration: true,
-        // Extremely long vibration sequence (simulate infinite ring)
-        vibrationPattern: [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
+        vibrationPattern: [1000, 1000, 1000, 1000],
     });
 
     await notifee.displayNotification({
@@ -38,7 +37,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         android: {
             channelId,
             category: AndroidCategory.CALL,
-            importance: 5, // MAX
+            importance: AndroidImportance.HIGH,
             priority: 'high',
             visibility: 1, // Public
             ongoing: true,
