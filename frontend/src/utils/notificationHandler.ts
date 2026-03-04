@@ -3,57 +3,52 @@ import notifee, { AndroidImportance, AndroidCategory } from '@notifee/react-nati
 
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
     const data = message.data;
-    if (!data) return;
+    if (!data || data.type !== 'INCOMING_CALL') return;
 
-    if (data['type'] === 'INCOMING_CALL') {
-        const callerName = data['callerName'] || 'Someone';
-        const groupName = data['groupName'] || 'a group';
-        const callId = data['callId'] || 'unknown';
-        const reason = data['reason'] || '';
+    const callerName = data.callerName || 'Someone';
+    const groupName = data.groupName || 'Group';
+    const callId = data.callId as string;
+    const reason = data.reason || '';
 
-        // 1. Create a high importance channel
-        const channelId = await notifee.createChannel({
-            id: 'incoming-calls',
-            name: 'Incoming Calls',
+    // Create channel
+    const channelId = await notifee.createChannel({
+        id: 'rally-calls-v2',
+        name: 'Urgent Rally Calls',
+        importance: AndroidImportance.HIGH,
+        sound: 'ringtone',
+        vibration: true,
+        vibrationPattern: [500, 500, 500, 500, 800, 800], // Professional pulsing vibration
+    });
+
+    await notifee.displayNotification({
+        id: callId,
+        title: `📞 RALLY: ${callerName}`,
+        body: reason ? `"${reason}" in ${groupName}` : `Incoming call in ${groupName}`,
+        data: { ...data },
+        android: {
+            channelId,
+            category: AndroidCategory.CALL,
             importance: AndroidImportance.HIGH,
-            sound: 'ringtone',
-            vibration: true,
-            vibrationPattern: [300, 500],
-        });
-
-        // 2. Display the notification with Full Screen Intent
-        await notifee.displayNotification({
-            title: reason ? `Rally: ${reason}` : 'Incoming RallyRing Call',
-            body: `${callerName} is calling in ${groupName}${reason ? `\nReason: ${reason}` : ''}`,
-            android: {
-                channelId,
-                category: AndroidCategory.CALL,
-                importance: AndroidImportance.HIGH,
-                fullScreenIntent: {
-                    id: 'default',
-                    launchActivity: 'default'
+            priority: 'high',
+            ongoing: true,
+            autoCancel: false,
+            fullScreenIntent: { id: 'default' },
+            pressAction: { id: 'default', launchActivity: 'default' },
+            actions: [
+                {
+                    title: '✅ ACCEPT',
+                    pressAction: { id: 'accept', launchActivity: 'default' },
                 },
-                actions: [
-                    {
-                        title: 'Accept',
-                        pressAction: { id: 'accept', launchActivity: 'default' },
-                    },
-                    {
-                        title: 'Reject',
-                        pressAction: { id: 'reject' },
-                    },
-                ],
-                asForegroundService: true,
-                ongoing: true,
-            } as any,
-            data: {
-                callId,
-                groupName,
-                callerName,
-                type: 'INCOMING_CALL'
-            }
-        });
-    }
+                {
+                    title: '❌ REJECT',
+                    pressAction: { id: 'reject' },
+                },
+            ],
+            // Use foreground service to help persist the notification
+            asForegroundService: true,
+            color: '#7C3AED',
+        } as any,
+    });
 }
 
 // Background handler

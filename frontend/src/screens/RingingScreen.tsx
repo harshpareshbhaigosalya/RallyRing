@@ -154,9 +154,22 @@ const RingingScreen = ({ route, navigation }: any) => {
                     </TouchableOpacity>
                 </View>
             ) : (
-                <TouchableOpacity style={styles.exitButton} onPress={stopRingingAndExit}>
-                    <Text style={styles.exitButtonText}>{session?.responses[user?.uid || ''] === 'accepted' ? 'Close Ringing View' : 'Back'}</Text>
-                </TouchableOpacity>
+                <View style={styles.footerActionContainer}>
+                    {session?.callerId === user?.uid ? (
+                        <TouchableOpacity
+                            style={[styles.exitButton, { backgroundColor: '#F44336' }]}
+                            onPress={async () => {
+                                await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
+                            }}
+                        >
+                            <Text style={styles.exitButtonText}>END RALLY FOR ALL</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity style={styles.exitButton} onPress={stopRingingAndExit}>
+                            <Text style={styles.exitButtonText}>CLOSE VIEW</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             )}
         </View>
     );
@@ -182,7 +195,8 @@ const styles = StyleSheet.create({
     acceptButton: { backgroundColor: '#4CAF50' },
     rejectButton: { backgroundColor: '#F44336' },
     buttonText: { color: 'white', marginTop: 8, fontSize: 12, fontWeight: 'bold' },
-    exitButton: { backgroundColor: '#1e1e1e', padding: 18, borderRadius: 15, position: 'absolute', bottom: 40, width: '100%', alignSelf: 'center', alignItems: 'center' },
+    footerActionContainer: { position: 'absolute', bottom: 40, width: '100%', alignSelf: 'center' },
+    exitButton: { backgroundColor: '#1e1e1e', padding: 18, borderRadius: 15, width: '100%', alignItems: 'center' },
     exitButtonText: { color: '#fff', fontWeight: 'bold' }
 });
 

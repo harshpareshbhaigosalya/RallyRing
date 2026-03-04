@@ -100,6 +100,25 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         }
     };
 
+    const handleStatusResponse = async (status: 'accepted' | 'rejected') => {
+        if (!activeCall || !user) return;
+        try {
+            await firestore().collection('call_sessions').doc(activeCall.callId).update({
+                [`responses.${user.uid}`]: status
+            });
+            if (status === 'accepted') {
+                navigation.navigate('Ringing', {
+                    callId: activeCall.callId,
+                    groupName: activeCall.groupName,
+                    callerName: memberData[activeCall.callerId] || 'Someone',
+                    reason: activeCall.reason
+                });
+            }
+        } catch (e) {
+            Alert.alert("Error", "Failed to update response");
+        }
+    };
+
     const handleDeleteGroup = () => {
         Alert.alert("Delete Group", "Are you sure? This cannot be undone.", [
             { text: "Cancel", style: "cancel" },
@@ -146,16 +165,17 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 <View style={styles.activeCallBox}>
                     <View style={styles.row}>
                         <RefreshCw color="#F44336" size={20} />
-                        <Text style={styles.activeCallText}>CALL IN PROGRESS</Text>
+                        <Text style={styles.activeCallText}>LIVE RALLY CALL</Text>
                     </View>
                     <Text style={styles.callReasonText}>"{activeCall.reason || 'No reason provided'}"</Text>
 
                     <View style={styles.statusRow}>
-                        <Text style={styles.statusItem}>✅ {Object.values(activeCall.responses).filter(v => v === 'accepted').length} Accepted</Text>
-                        <Text style={styles.statusItem}>⏳ {Object.values(activeCall.responses).filter(v => v === 'pending').length} Pending</Text>
+                        <Text style={[styles.statusItem, { color: '#4CAF50' }]}>✅ {Object.values(activeCall.responses).filter(v => v === 'accepted').length} Accepted</Text>
+                        <Text style={[styles.statusItem, { color: '#F44336' }]}>❌ {Object.values(activeCall.responses).filter(v => v === 'rejected').length} Rejected</Text>
+                        <Text style={[styles.statusItem, { color: '#FFC107' }]}>⏳ {Object.values(activeCall.responses).filter(v => v === 'pending').length} Pending</Text>
                     </View>
 
-                    {activeCall.callerId === user?.uid && (
+                    {activeCall.callerId === user?.uid ? (
                         <TouchableOpacity
                             style={styles.endButton}
                             onPress={async () => {
@@ -164,6 +184,35 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                         >
                             <Text style={styles.endButtonText}>END CALL FOR ALL</Text>
                         </TouchableOpacity>
+                    ) : (
+                        activeCall.responses[user?.uid || ''] === 'pending' ? (
+                            <View style={styles.responseButtonsRow}>
+                                <TouchableOpacity
+                                    style={[styles.smallButton, styles.rejectSmall]}
+                                    onPress={() => handleStatusResponse('rejected')}
+                                >
+                                    <Text style={styles.buttonTextSmall}>Reject</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.smallButton, styles.acceptSmall]}
+                                    onPress={() => handleStatusResponse('accepted')}
+                                >
+                                    <Text style={styles.buttonTextSmall}>Accept</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.viewCallButton}
+                                onPress={() => navigation.navigate('Ringing', {
+                                    callId: activeCall.callId,
+                                    groupName: activeCall.groupName,
+                                    callerName: memberData[activeCall.callerId] || 'Someone',
+                                    reason: activeCall.reason
+                                })}
+                            >
+                                <Text style={styles.viewCallText}>VIEW RALLY STATUS</Text>
+                            </TouchableOpacity>
+                        )
                     )}
                 </View>
             ) : (
@@ -287,7 +336,15 @@ const styles = StyleSheet.create({
     selectedItem: { backgroundColor: 'rgba(124, 58, 237, 0.1)', borderColor: '#7C3AED', borderWidth: 1 },
     meItem: { opacity: 0.8 },
     memberText: { color: '#fff', fontSize: 16, marginLeft: 10 },
+    viewCallButton: { backgroundColor: '#1e1e1e', padding: 10, borderRadius: 8, marginTop: 15, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
+    viewCallText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
+    responseButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 },
+    smallButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+    acceptSmall: { backgroundColor: '#4CAF50', marginLeft: 5 },
+    rejectSmall: { backgroundColor: '#F44336', marginRight: 5 },
+    buttonTextSmall: { color: 'white', fontWeight: 'bold', fontSize: 13 },
     adminTag: { color: '#7C3AED', fontSize: 10, fontWeight: 'bold', backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+
     footer: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
     deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
     deleteText: { color: '#F44336', marginLeft: 8, fontWeight: '600' },

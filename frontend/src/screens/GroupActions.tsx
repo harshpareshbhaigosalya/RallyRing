@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { useStore } from '../store/useStore';
 
 const CreateGroupScreen = ({ navigation }: any) => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [loading, setLoading] = useState(false);
     const { user } = useStore();
 
     const handleCreate = async () => {
-        if (!name.trim() || !user) return;
+        if (!name.trim() || !user || loading) return;
+        setLoading(true);
         try {
             const groupId = Math.random().toString(36).substring(2, 8).toUpperCase();
             await firestore().collection('groups').doc(groupId).set({
@@ -21,7 +23,11 @@ const CreateGroupScreen = ({ navigation }: any) => {
                 createdAt: firestore.FieldValue.serverTimestamp(),
             });
             navigation.goBack();
-        } catch (e) { Alert.alert("Error", "Failed to create group"); }
+        } catch (e) {
+            Alert.alert("Error", "Failed to create group");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -41,8 +47,12 @@ const CreateGroupScreen = ({ navigation }: any) => {
                 value={description}
                 onChangeText={setDescription}
             />
-            <TouchableOpacity style={styles.button} onPress={handleCreate}>
-                <Text style={styles.buttonText}>Create Group</Text>
+            <TouchableOpacity
+                style={[styles.button, loading && { opacity: 0.7 }]}
+                onPress={handleCreate}
+                disabled={loading}
+            >
+                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Create Group</Text>}
             </TouchableOpacity>
         </View>
     );
@@ -50,10 +60,12 @@ const CreateGroupScreen = ({ navigation }: any) => {
 
 const JoinGroupScreen = ({ navigation }: any) => {
     const [groupId, setGroupId] = useState('');
+    const [loading, setLoading] = useState(false);
     const { user } = useStore();
 
     const handleJoin = async () => {
-        if (!groupId.trim() || !user) return;
+        if (!groupId.trim() || !user || loading) return;
+        setLoading(true);
         try {
             const gId = groupId.trim().toUpperCase();
             const doc = await firestore().collection('groups').doc(gId).get();
@@ -67,6 +79,7 @@ const JoinGroupScreen = ({ navigation }: any) => {
             });
             navigation.goBack();
         } catch (e) { Alert.alert("Error", "Failed to join group"); }
+        finally { setLoading(false); }
     };
 
     return (
@@ -80,8 +93,12 @@ const JoinGroupScreen = ({ navigation }: any) => {
                 onChangeText={setGroupId}
                 autoCapitalize="characters"
             />
-            <TouchableOpacity style={styles.button} onPress={handleJoin}>
-                <Text style={styles.buttonText}>Join Group</Text>
+            <TouchableOpacity
+                style={[styles.button, loading && { opacity: 0.7 }]}
+                onPress={handleJoin}
+                disabled={loading}
+            >
+                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Join Group</Text>}
             </TouchableOpacity>
         </View>
     );

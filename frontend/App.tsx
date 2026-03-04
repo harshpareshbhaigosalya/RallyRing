@@ -18,7 +18,19 @@ const App = () => {
     requestPermission();
 
     // 2. Setup message listeners
-    const unsubscribeForeground = messaging().onMessage(onMessageReceived);
+    const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+      // Show local notification using our handler
+      await onMessageReceived(remoteMessage);
+
+      // If it's a call, navigate to RingingScreen immediately if in foreground
+      if (remoteMessage.data?.type === 'INCOMING_CALL') {
+        const { callId, groupName, callerName, reason } = remoteMessage.data;
+        // Small delay to let firestore sync the new call session
+        setTimeout(() => {
+          navigate('Ringing', { callId, groupName, callerName, reason: (reason as string) || '' });
+        }, 500);
+      }
+    });
 
     // 3. Handle notification interaction (Accept/Reject from background)
     const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
