@@ -1,4 +1,4 @@
-# 💍 RallyRing - Smart Group Rally System
+# 🔔 RallyRing - Smart Group Rally System
 
 RallyRing is a high-performance, real-time mobile application designed to "Rally" groups of people instantly. Whether it's for a quick lunch, an emergency meeting, or a spontaneous hangout, RallyRing bypasses the "text message noise" by triggering full-screen, persistent call notifications on members' devices with live status tracking.
 
