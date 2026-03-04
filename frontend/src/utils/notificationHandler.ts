@@ -3,21 +3,31 @@ import notifee, { AndroidImportance, AndroidCategory } from '@notifee/react-nati
 
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
     const data = message.data;
-    if (!data || data.type !== 'INCOMING_CALL') return;
+    if (!data) return;
+
+    if (data.type === 'CANCEL_CALL') {
+        const cId = data.callId as string;
+        await notifee.cancelNotification(cId);
+        await notifee.stopForegroundService();
+        return;
+    }
+
+    if (data.type !== 'INCOMING_CALL') return;
 
     const callerName = data.callerName || 'Someone';
     const groupName = data.groupName || 'Group';
     const callId = data.callId as string;
     const reason = data.reason || '';
 
-    // Create channel
+    // MAX importance is crucial for full-screen and persistent behavior
     const channelId = await notifee.createChannel({
-        id: 'rally-calls-v2',
-        name: 'Urgent Rally Calls',
+        id: 'rally-calls-infinite-v1',
+        name: 'Urgent Squadron Alerts',
         importance: AndroidImportance.HIGH,
         sound: 'ringtone',
         vibration: true,
-        vibrationPattern: [500, 500, 500, 500, 800, 800], // Professional pulsing vibration
+        // Long, rhythmic vibration that feels like a constant ring
+        vibrationPattern: [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
     });
 
     await notifee.displayNotification({
@@ -28,11 +38,15 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         android: {
             channelId,
             category: AndroidCategory.CALL,
-            importance: AndroidImportance.HIGH,
+            importance: 4, // HIGH
             priority: 'high',
-            ongoing: true,
+            ongoing: true, // Prevents swipe-away
             autoCancel: false,
-            fullScreenIntent: { id: 'default' },
+            loopSound: true, // Loop the system ringtone
+            fullScreenIntent: {
+                id: 'default',
+                launchActivity: 'com.rallyring.MainActivity',
+            },
             pressAction: { id: 'default', launchActivity: 'default' },
             actions: [
                 {
@@ -44,12 +58,8 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     pressAction: { id: 'reject' },
                 },
             ],
-            // Use foreground service to help persist the notification
             asForegroundService: true,
             color: '#7C3AED',
         } as any,
     });
 }
-
-// Background handler
-messaging().setBackgroundMessageHandler(onMessageReceived);

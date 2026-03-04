@@ -203,9 +203,36 @@ app.post('/trigger-call', async (req, res) => {
 app.post('/stop-call', async (req, res) => {
     const { callId } = req.body;
     try {
-        await db.collection('call_sessions').doc(callId).update({ status: 'ended' });
+        const doc = await db.collection('call_sessions').doc(callId).get();
+        if (doc.exists) {
+            const data = doc.data();
+            await db.collection('call_sessions').doc(callId).update({ status: 'ended' });
+
+            // Broadcast CANCEL signal to all targets
+            const targetUids = data?.targetUids || [];
+            if (targetUids.length > 0) {
+                const chunks = [];
+                for (let i = 0; i < targetUids.length; i += 10) {
+                    chunks.push(targetUids.slice(i, i + 10));
+                }
+                const tokenChunks = await Promise.all(
+                    chunks.map(chunk => db.collection('users').where('uid', 'in', chunk).get())
+                );
+                const tokens: string[] = [];
+                tokenChunks.forEach(snap => snap.forEach(d => { if (d.data().fcmToken) tokens.push(d.data().fcmToken) }));
+
+                if (tokens.length > 0) {
+                    await fcm.sendEachForMulticast({
+                        data: { type: 'CANCEL_CALL', callId },
+                        tokens,
+                        android: { priority: 'high' }
+                    });
+                }
+            }
+        }
         res.status(200).send({ success: true });
     } catch (error) {
+        console.error("Stop call error:", error);
         res.status(500).send({ error: "Failed to stop call" });
     }
 });

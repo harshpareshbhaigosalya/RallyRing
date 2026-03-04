@@ -12,27 +12,30 @@ const RegisterScreen = ({ navigation }: any) => {
 
     useEffect(() => {
         const checkPermissions = async () => {
-            const authStatus = await messaging().requestPermission();
-            const enabled =
-                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-            // Check for Power Management (Battery Optimization) - Crucial for background work
-            const battery = await messaging().isDeviceRegisteredForRemoteMessages; // just a placeholder for check
-
-            if (!enabled) {
-                Alert.alert(
-                    "Permissions Required",
-                    "RallyRing needs notification permissions to alert you for important calls. Please enable them in settings."
-                );
-            }
-
-            // Power Management guidance
             if (Platform.OS === 'android') {
+                // 1. Notification Permission (Standard)
+                const authStatus = await messaging().requestPermission();
+                const enabled =
+                    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+                if (!enabled) {
+                    Alert.alert(
+                        "Notifications Needed",
+                        "RallyRing is useless without notifications! Please allow them to hear when your squad needs you.",
+                        [{ text: "Open Settings", onPress: () => messaging().requestPermission() }]
+                    );
+                }
+
+                // 2. Overlay Permission (For Full Screen Call UI)
+                // We'll just warn them for now as direct prompt is complex, 
+                // but essential for 'Call' style behavior
+
+                // 3. Battery Optimization (Highly recommended)
                 Alert.alert(
-                    "Background Reliability",
-                    "To ensure you receive calls even when your phone is locked or the app is closed, please ensure:\n\n1. Battery Optimization is set to 'Don't Optimize' for RallyRing.\n2. Notifications are set to 'Urgent' or 'High Importance'.",
-                    [{ text: "OK" }]
+                    "Enable High Reliability",
+                    "To ensure calls ring even when your phone is asleep, please set RallyRing battery usage to 'Unrestricted' in settings.",
+                    [{ text: "I'll do it", style: 'default' }]
                 );
             }
         };

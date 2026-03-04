@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Share, Alert } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import messaging from '@react-native-firebase/messaging';
 import { useStore } from '../store/useStore';
 import { Plus, Users } from 'lucide-react-native';
 
@@ -9,6 +10,15 @@ const HomeScreen = ({ navigation }: any) => {
 
     useEffect(() => {
         if (!user || !user.uid) return;
+
+        // Recurring Permission Check to ensure reliability
+        const checkPerms = async () => {
+            const authStatus = await messaging().requestPermission();
+            if (authStatus === messaging.AuthorizationStatus.DENIED) {
+                Alert.alert("Notifications Disabled", "RallyRing cannot alert you without notifications. Please enable them in settings.");
+            }
+        };
+        checkPerms();
 
         const unsubscribe = firestore()
             .collection('groups')
