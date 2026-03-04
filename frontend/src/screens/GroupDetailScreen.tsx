@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Tex
 import firestore from '@react-native-firebase/firestore';
 import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
-import { PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, History, Calendar, ChevronRight } from 'lucide-react-native';
+import { PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, History, Calendar, ChevronRight, Users, Bell } from 'lucide-react-native';
 import notifee from '@notifee/react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
 const GroupDetailScreen = ({ route, navigation }: any) => {
     const { groupId } = route.params;
@@ -29,7 +30,6 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
             setGroup(data);
 
             if (data?.members) {
-                // Pre-select all members if list empty
                 if (selectedMembers.length === 0) {
                     setSelectedMembers(data.members.filter((m: string) => m !== user?.uid));
                 }
@@ -64,7 +64,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
             .where('groupId', '==', groupId)
             .where('status', '==', 'ended')
             .orderBy('createdAt', 'desc')
-            .limit(10)
+            .limit(15)
             .onSnapshot(snapshot => {
                 if (snapshot) {
                     setHistory(snapshot.docs.map(doc => doc.data()));
@@ -97,7 +97,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         }
         setLoadingCall(true);
         try {
-            const res = await triggerCall(
+            await triggerCall(
                 groupId,
                 user.uid,
                 group.name,
@@ -107,65 +107,11 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
             );
             setShowCallModal(false);
             setCallReason('');
-            Alert.alert("Call Sent!", `Notifying ${res.tokensTargeted} member(s).`);
         } catch (e: any) {
-            Alert.alert("Call Failed", "Check your connection and backend.");
+            Alert.alert("Call Failed", "Check your connection.");
         } finally {
             setLoadingCall(false);
         }
-    };
-
-    const handleStatusResponse = async (status: 'accepted' | 'rejected') => {
-        if (!activeCall || !user) return;
-        try {
-            await notifee.cancelNotification(activeCall.callId);
-
-            const docRef = firestore().collection('call_sessions').doc(activeCall.callId);
-            await docRef.update({
-                [`responses.${user.uid}`]: status
-            });
-
-            // Re-fetch to check if session should end
-            const latest = await docRef.get();
-            const data = latest.data();
-            if (data?.responses) {
-                const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
-                if (allResponded) {
-                    await docRef.update({ status: 'ended' });
-                }
-            }
-
-            if (status === 'accepted') {
-                navigation.navigate('Ringing', {
-                    callId: activeCall.callId,
-                    groupName: activeCall.groupName,
-                    callerName: memberData[activeCall.callerId] || 'Someone',
-                    reason: activeCall.reason
-                });
-            }
-        } catch (e) {
-            Alert.alert("Error", "Failed to update response");
-        }
-    };
-
-    const handleDeleteGroup = () => {
-        Alert.alert("Delete Group", "Are you sure? This cannot be undone.", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Delete", style: "destructive", onPress: async () => {
-                    await firestore().collection('groups').doc(groupId).delete();
-                    navigation.goBack();
-                }
-            }
-        ]);
-    };
-
-    const handleLeaveGroup = async () => {
-        const remaining = group.members.filter((m: string) => m !== user?.uid);
-        await firestore().collection('groups').doc(groupId).update({
-            members: remaining
-        });
-        navigation.goBack();
     };
 
     const isAdmin = group?.admin === user?.uid;
@@ -174,212 +120,190 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <View style={{ flex: 1, marginRight: 10 }}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <ChevronRight color="#fff" size={24} style={{ transform: [{ rotate: '180deg' }] }} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
-                    <Text style={styles.subtitle}>ID: {groupId} • {group?.members.length} Members</Text>
+                    <Text style={styles.subtitle}>{group?.members?.length} Members • ID: {groupId.slice(0, 8)}</Text>
                 </View>
-                <TouchableOpacity onPress={() => Share.share({ message: `Join my RallyRing! ID: ${groupId}` })}>
-                    <UserPlus color="#7C3AED" size={24} />
+                <TouchableOpacity style={styles.iconBtn} onPress={() => Share.share({ message: `Join my RallyRing! ID: ${groupId}` })}>
+                    <UserPlus color="#7C3AED" size={22} />
                 </TouchableOpacity>
             </View>
 
-            {group?.description ? (
-                <View style={styles.descBox}>
-                    <Text style={styles.descText}>{group.description}</Text>
-                </View>
-            ) : null}
+            {/* Calling Hub */}
+            <View style={styles.callHub}>
+                {activeCall ? (
+                    <LinearGradient colors={['#1e1e1e', '#111']} style={styles.activeCallCard}>
+                        <View style={styles.liveBadge}>
+                            <View style={styles.blinkDot} />
+                            <Text style={styles.liveText}>LIVE RALLY</Text>
+                        </View>
 
-            {/* Active Call State or Start Button */}
-            {activeCall ? (
-                <View style={styles.activeCallBox}>
-                    <View style={styles.row}>
-                        <RefreshCw color="#F44336" size={20} />
-                        <Text style={styles.activeCallText}>LIVE RALLY CALL</Text>
-                    </View>
-                    <Text style={styles.callReasonText}>"{activeCall.reason || 'No reason provided'}"</Text>
+                        <Text style={styles.activeReason}>"{activeCall.reason}"</Text>
+                        <Text style={styles.callerText}>Started by {memberData[activeCall.callerId] || 'Squad'}</Text>
 
-                    <View style={styles.statusRow}>
-                        <Text style={[styles.statusItem, { color: '#4CAF50' }]}>✅ {Object.values(activeCall.responses).filter(v => v === 'accepted').length} Accepted</Text>
-                        <Text style={[styles.statusItem, { color: '#F44336' }]}>❌ {Object.values(activeCall.responses).filter(v => v === 'rejected').length} Rejected</Text>
-                        <Text style={[styles.statusItem, { color: '#FFC107' }]}>⏳ {Object.values(activeCall.responses).filter(v => v === 'pending').length} Pending</Text>
-                    </View>
-
-                    {activeCall.callerId === user?.uid ? (
-                        <TouchableOpacity
-                            style={styles.endButton}
-                            onPress={async () => {
-                                await firestore().collection('call_sessions').doc(activeCall.callId).update({ status: 'ended' });
-                            }}
-                        >
-                            <Text style={styles.endButtonText}>END CALL FOR ALL</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        activeCall.responses[user?.uid || ''] === 'pending' ? (
-                            <View style={styles.responseButtonsRow}>
-                                <TouchableOpacity
-                                    style={[styles.smallButton, styles.rejectSmall]}
-                                    onPress={() => handleStatusResponse('rejected')}
-                                >
-                                    <Text style={styles.buttonTextSmall}>Reject</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.smallButton, styles.acceptSmall]}
-                                    onPress={() => handleStatusResponse('accepted')}
-                                >
-                                    <Text style={styles.buttonTextSmall}>Accept</Text>
-                                </TouchableOpacity>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <CheckCircle color="#4CAF50" size={16} />
+                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'accepted').length}</Text>
                             </View>
-                        ) : (
-                            <TouchableOpacity
-                                style={styles.viewCallButton}
-                                onPress={() => navigation.navigate('Ringing', {
-                                    callId: activeCall.callId,
-                                    groupName: activeCall.groupName,
-                                    callerName: memberData[activeCall.callerId] || 'Someone',
-                                    reason: activeCall.reason
-                                })}
-                            >
-                                <Text style={styles.viewCallText}>VIEW RALLY STATUS</Text>
-                            </TouchableOpacity>
-                        )
-                    )}
-                </View>
-            ) : (
-                <TouchableOpacity
-                    style={[styles.callButton, loadingCall && { opacity: 0.7 }]}
-                    onPress={() => setShowCallModal(true)}
-                    disabled={loadingCall}
-                >
-                    <PhoneCall color="white" size={24} />
-                    <Text style={styles.callButtonText}>START RALLY CALL</Text>
-                </TouchableOpacity>
-            )}
+                            <View style={styles.statItem}>
+                                <Trash2 color="#F44336" size={16} />
+                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'rejected').length}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <RefreshCw color="#FFC107" size={16} />
+                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'pending').length}</Text>
+                            </View>
+                        </View>
 
-            {/* Member Selection Section */}
-            {!activeCall && (
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.memberHeader}>Notify Squad</Text>
-                    <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
-                        <Text style={styles.selectAllText}>
-                            {selectedMembers.length === group?.members.length - 1 ? 'Deselect All' : 'Select All'}
-                        </Text>
+                        <TouchableOpacity
+                            style={styles.joinCallBtn}
+                            onPress={() => navigation.navigate('Ringing', {
+                                callId: activeCall.callId,
+                                groupName: activeCall.groupName,
+                                callerName: memberData[activeCall.callerId] || 'Someone',
+                                reason: activeCall.reason
+                            })}
+                        >
+                            <Text style={styles.joinText}>ENTER CALL HUB</Text>
+                        </TouchableOpacity>
+                    </LinearGradient>
+                ) : (
+                    <TouchableOpacity style={styles.startCallBtn} onPress={() => setShowCallModal(true)}>
+                        <LinearGradient colors={['#7C3AED', '#5B21B6']} style={styles.startGradient}>
+                            <PhoneCall color="#fff" size={24} />
+                            <Text style={styles.startCallText}>START SQUAD RALLY</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
-                </View>
-            )}
+                )}
+            </View>
 
-            <View style={styles.tabContainer}>
-                <TouchableOpacity
-                    style={[styles.tab, !showHistory && styles.activeTab]}
-                    onPress={() => setShowHistory(false)}
-                >
-                    <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>Members</Text>
+            <View style={styles.tabBar}>
+                <TouchableOpacity style={[styles.tab, !showHistory && styles.activeTab]} onPress={() => setShowHistory(false)}>
+                    <Text style={[styles.tabLabel, !showHistory && styles.activeLabel]}>SQUAD LIST</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tab, showHistory && styles.activeTab]}
-                    onPress={() => setShowHistory(true)}
-                >
-                    <Text style={[styles.tabText, showHistory && styles.activeTabText]}>History {history.length > 0 ? `(${history.length})` : ''}</Text>
+                <TouchableOpacity style={[styles.tab, showHistory && styles.activeTab]} onPress={() => setShowHistory(true)}>
+                    <Text style={[styles.tabLabel, showHistory && styles.activeLabel]}>HISTORY</Text>
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.scroll}>
+            <ScrollView style={styles.content}>
                 {!showHistory ? (
-                    group?.members.map((m: string) => (
-                        <TouchableOpacity
-                            key={m}
-                            style={[
-                                styles.memberItem,
-                                m === user?.uid && styles.meItem,
-                                selectedMembers.includes(m) && styles.selectedItem
-                            ]}
-                            onPress={() => handleToggleMember(m)}
-                            disabled={m === user?.uid}
-                        >
-                            <View style={styles.row}>
-                                {m === user?.uid ? null : (
-                                    selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={20} /> : <Circle color="#666" size={20} />
+                    <View>
+                        <View style={styles.memberToolbox}>
+                            <Text style={styles.sectionTitle}>Tap to select for call</Text>
+                            <TouchableOpacity onPress={handleSelectAll}>
+                                <Text style={styles.selectAll}>{selectedMembers.length === group?.members.length - 1 ? 'Deselect All' : 'Select All'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {group?.members.map((m: string) => (
+                            <TouchableOpacity
+                                key={m}
+                                style={[styles.memberCard, selectedMembers.includes(m) && styles.selectedMember]}
+                                onPress={() => handleToggleMember(m)}
+                                disabled={m === user?.uid}
+                            >
+                                <View style={styles.memberInfo}>
+                                    <View style={[styles.avatarSm, m === group.admin && { borderColor: '#7C3AED', borderWidth: 1 }]}>
+                                        <Text style={styles.avatarText}>{(memberData[m] || '?')[0].toUpperCase()}</Text>
+                                    </View>
+                                    <Text style={styles.memberName}>
+                                        {m === user?.uid ? 'You' : (memberData[m] || 'Loading...')}
+                                    </Text>
+                                </View>
+                                {m === user?.uid ? (
+                                    <Text style={styles.meBadge}>ME</Text>
+                                ) : (
+                                    selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={22} /> : <Circle color="#333" size={22} />
                                 )}
-                                <Text style={[styles.memberText, m === user?.uid && { marginLeft: 0 }]}>
-                                    {m === user?.uid ? `You (${memberData[m] || user.name})` : (memberData[m] || `User ${m}`)}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                ) : (
+                    history.map((h, idx) => (
+                        <View key={idx} style={styles.historyCard}>
+                            <View style={styles.historyTop}>
+                                <Text style={styles.hReason}>"{h.reason || 'Rally'}"</Text>
+                                <Text style={styles.hDate}>
+                                    {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
                                 </Text>
                             </View>
-                            {m === group.admin && <Text style={styles.adminTag}>ADMIN</Text>}
-                        </TouchableOpacity>
-                    ))
-                ) : (
-                    history.length > 0 ? (
-                        history.map((h, idx) => (
-                            <View key={idx} style={styles.historyItem}>
-                                <View style={styles.historyTop}>
-                                    <View style={styles.historyMeta}>
-                                        <Calendar color="#7C3AED" size={12} />
-                                        <Text style={styles.historyDate}>
-                                            {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleDateString() : 'Recent'}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.historyCaller}>By {memberData[h.callerId] || 'Squad'}</Text>
-                                </View>
-                                <Text style={styles.historyReason}>"{h.reason || 'Rally'}"</Text>
-                                <View style={styles.memberStatusLog}>
-                                    {Object.entries(h.responses).map(([uid, status]: [string, any]) => (
-                                        <Text key={uid} style={[styles.miniStatusBadge, status === 'accepted' ? styles.badgeGreen : status === 'rejected' ? styles.badgeRed : styles.badgeAmber]}>
-                                            {memberData[uid] || '...'} {status === 'accepted' ? '✅' : status === 'rejected' ? '❌' : '⏳'}
-                                        </Text>
-                                    ))}
-                                </View>
+                            <Text style={styles.hBy}>By {memberData[h.callerId] || 'Squad'}</Text>
+
+                            <View style={styles.hStatsRow}>
+                                <Text style={[styles.hStat, { color: '#4CAF50' }]}>✅ {Object.values(h.responses).filter(v => v === 'accepted').length}</Text>
+                                <Text style={[styles.hStat, { color: '#F44336' }]}>❌ {Object.values(h.responses).filter(v => v === 'rejected').length}</Text>
+                                <Text style={[styles.hStat, { color: '#FFC107' }]}>⏳ {Object.values(h.responses).filter(v => v === 'pending').length}</Text>
                             </View>
-                        ))
-                    ) : (
-                        <View style={styles.emptyContainer}>
-                            <History color="#333" size={40} />
-                            <Text style={styles.emptyText}>No past rallies yet</Text>
+
+                            <View style={styles.attendeeList}>
+                                {Object.entries(h.responses).map(([uid, status]: [string, any]) => (
+                                    <View key={uid} style={styles.miniAttendee}>
+                                        <Text style={[styles.miniName, status === 'accepted' ? styles.txtGreen : status === 'rejected' ? styles.txtRed : styles.txtYellow]}>
+                                            {memberData[uid] || '...'}
+                                        </Text>
+                                        <Text style={styles.miniIcon}>{status === 'accepted' ? '✅' : status === 'rejected' ? '❌' : '⏳'}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    )
+                    ))
                 )}
             </ScrollView>
 
-            {/* Footer Actions */}
-            <View style={styles.footer}>
+            <View style={styles.dangerZone}>
                 {isAdmin ? (
-                    <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteGroup}>
-                        <Trash2 color="#F44336" size={20} />
-                        <Text style={styles.deleteText}>Delete Group</Text>
+                    <TouchableOpacity style={styles.dangerBtn} onPress={() => {
+                        Alert.alert("Delete Squad", "Clear all history and members?", [
+                            { text: "Cancel" },
+                            {
+                                text: "Delete", style: 'destructive', onPress: async () => {
+                                    await firestore().collection('groups').doc(groupId).delete();
+                                    navigation.goBack();
+                                }
+                            }
+                        ]);
+                    }}>
+                        <Trash2 color="#444" size={18} />
+                        <Text style={styles.dangerTxt}>Delete Squad</Text>
                     </TouchableOpacity>
                 ) : (
-                    <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
-                        <LogOut color="#aaa" size={20} />
-                        <Text style={styles.leaveText}>Leave Group</Text>
+                    <TouchableOpacity style={styles.dangerBtn} onPress={async () => {
+                        const remaining = group.members.filter((m: string) => m !== user?.uid);
+                        await firestore().collection('groups').doc(groupId).update({ members: remaining });
+                        navigation.goBack();
+                    }}>
+                        <LogOut color="#444" size={18} />
+                        <Text style={styles.dangerTxt}>Leave Squad</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
-            {/* Call Reason Modal */}
-            <Modal visible={showCallModal} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Rally Reason</Text>
+            {/* Better Modal Design */}
+            <Modal visible={showCallModal} transparent animationType="fade">
+                <View style={styles.modalBlur}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.mTitle}>Broadcast Rally</Text>
+                        <Text style={styles.mSub}>All selected members will receive a full-screen ringing alert.</Text>
+
                         <TextInput
-                            style={styles.modalInput}
-                            placeholder="Why are you calling? (Optional)"
-                            placeholderTextColor="#666"
+                            style={styles.mInput}
+                            placeholder="Reason for call..."
+                            placeholderTextColor="#555"
                             value={callReason}
                             onChangeText={setCallReason}
-                            autoFocus
+                            multiline
                         />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancel} onPress={() => setShowCallModal(false)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+
+                        <View style={styles.mActions}>
+                            <TouchableOpacity style={styles.mBtnCancel} onPress={() => setShowCallModal(false)}>
+                                <Text style={styles.mBtnTxtCancel}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalConfirm, (loadingCall || selectedMembers.length === 0) && { opacity: 0.5 }]}
-                                onPress={handleTriggerCall}
-                                disabled={loadingCall || selectedMembers.length === 0}
-                            >
-                                {loadingCall ? (
-                                    <ActivityIndicator color="white" size="small" />
-                                ) : (
-                                    <Text style={styles.confirmText}>Notify {selectedMembers.length} People</Text>
-                                )}
+                            <TouchableOpacity style={styles.mBtnConfirm} onPress={handleTriggerCall} disabled={loadingCall}>
+                                {loadingCall ? <ActivityIndicator color="#fff" /> : <Text style={styles.mBtnTxtConfirm}>START CALL</Text>}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -391,74 +315,69 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000', paddingHorizontal: 20 },
-    header: { flexDirection: 'row', alignItems: 'center', marginTop: 50, marginBottom: 15 },
-    title: { fontSize: 28, color: '#fff', fontWeight: 'bold' },
-    subtitle: { color: '#aaa', fontSize: 13, marginTop: 2 },
-    descBox: { backgroundColor: '#1e1e1e', padding: 12, borderRadius: 10, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: '#7C3AED' },
-    descText: { color: '#ccc', fontStyle: 'italic' },
-    callButton: { backgroundColor: '#7C3AED', padding: 18, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 25 },
-    callButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
-    activeCallBox: { backgroundColor: '#1e1e1e', padding: 20, borderRadius: 15, borderLeftWidth: 5, borderLeftColor: '#F44336', marginBottom: 25 },
-    activeCallText: { color: '#F44336', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
-    callReasonText: { color: '#fff', fontSize: 18, fontWeight: '500', marginVertical: 10 },
-    statusRow: { flexDirection: 'row', marginTop: 5 },
-    statusItem: { color: '#aaa', marginRight: 15, fontSize: 13 },
-    endButton: { backgroundColor: '#F44336', padding: 10, borderRadius: 8, marginTop: 15, alignItems: 'center' },
-    endButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingTop: 10 },
-    memberHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
-    selectAllBtn: { paddingVertical: 5, paddingHorizontal: 12, backgroundColor: 'rgba(124, 58, 237, 0.1)', borderRadius: 20 },
-    selectAllText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 13 },
-    scroll: { flex: 1, marginBottom: 10 },
-    memberItem: { backgroundColor: '#1e1e1e', padding: 15, borderRadius: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    selectedItem: { backgroundColor: 'rgba(124, 58, 237, 0.1)', borderColor: '#7C3AED', borderWidth: 1 },
-    meItem: { opacity: 0.8 },
-    memberText: { color: '#fff', fontSize: 16, marginLeft: 10 },
-    viewCallButton: { backgroundColor: '#1e1e1e', padding: 10, borderRadius: 8, marginTop: 15, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-    viewCallText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
-    responseButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 },
-    smallButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
-    acceptSmall: { backgroundColor: '#4CAF50', marginLeft: 5 },
-    rejectSmall: { backgroundColor: '#F44336', marginRight: 5 },
-    buttonTextSmall: { color: 'white', fontWeight: 'bold', fontSize: 13 },
-    adminTag: { color: '#7C3AED', fontSize: 10, fontWeight: 'bold', backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    tabContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#111', borderRadius: 12, padding: 4 },
-    tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-    activeTab: { backgroundColor: '#1e1e1e' },
-    tabText: { color: '#666', fontWeight: 'bold', fontSize: 14 },
-    activeTabText: { color: '#7C3AED' },
-    historyItem: { backgroundColor: '#1e1e1e', padding: 15, borderRadius: 15, marginBottom: 12, borderWidth: 1, borderColor: '#333' },
-    historyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    historyMeta: { flexDirection: 'row', alignItems: 'center' },
-    historyDate: { color: '#999', fontSize: 11, marginLeft: 5 },
-    historyCaller: { color: '#7C3AED', fontSize: 11, fontWeight: 'bold' },
-    historyReason: { color: '#fff', fontSize: 15, fontWeight: '500', marginBottom: 10 },
-    statLine: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#2e2e2e', paddingTop: 10 },
-    statItem: { fontSize: 12, color: '#aaa', marginRight: 15 },
-    memberStatusLog: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#2e2e2e', paddingTop: 10 },
-    miniStatusBadge: { fontSize: 10, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 5, marginBottom: 5, fontWeight: 'bold' },
-    badgeGreen: { backgroundColor: 'rgba(76, 175, 80, 0.1)', color: '#4CAF50' },
-    badgeRed: { backgroundColor: 'rgba(244, 67, 54, 0.1)', color: '#F44336' },
-    badgeAmber: { backgroundColor: 'rgba(255, 193, 7, 0.1)', color: '#FFC107' },
-    emptyContainer: { alignItems: 'center', marginTop: 100 },
-    emptyText: { color: '#444', marginTop: 15, fontSize: 16 },
-
-
-    footer: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
-    deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    deleteText: { color: '#F44336', marginLeft: 8, fontWeight: '600' },
-    leaveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    leaveText: { color: '#aaa', marginLeft: 8, fontWeight: '600' },
-    row: { flexDirection: 'row', alignItems: 'center' },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#1e1e1e', borderRadius: 20, padding: 25 },
-    modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
-    modalInput: { backgroundColor: '#2e2e2e', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, marginBottom: 20 },
-    modalButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
-    modalCancel: { marginRight: 20, justifyContent: 'center' },
-    cancelText: { color: '#aaa', fontSize: 16 },
-    modalConfirm: { backgroundColor: '#7C3AED', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
-    confirmText: { color: '#fff', fontWeight: 'bold' }
+    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, marginBottom: 20 },
+    backBtn: { backgroundColor: '#111', padding: 8, borderRadius: 12 },
+    title: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+    subtitle: { color: '#666', fontSize: 13 },
+    iconBtn: { backgroundColor: '#111', padding: 10, borderRadius: 12 },
+    callHub: { marginBottom: 25 },
+    activeCallCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#333' },
+    liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(244, 67, 54, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12 },
+    blinkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#F44336', marginRight: 6 },
+    liveText: { color: '#F44336', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+    activeReason: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+    callerText: { color: '#666', fontSize: 12, marginBottom: 15 },
+    statsRow: { flexDirection: 'row', marginBottom: 20 },
+    statItem: { flexDirection: 'row', alignItems: 'center', marginRight: 15, backgroundColor: '#111', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    statVal: { color: '#fff', marginLeft: 6, fontWeight: 'bold', fontSize: 13 },
+    joinCallBtn: { backgroundColor: '#fff', padding: 14, borderRadius: 12, alignItems: 'center' },
+    joinText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
+    startCallBtn: { borderRadius: 20, overflow: 'hidden' },
+    startGradient: { padding: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    startCallText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 12 },
+    tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#111', marginBottom: 15 },
+    tab: { paddingVertical: 12, marginRight: 25 },
+    activeTab: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
+    tabLabel: { color: '#444', fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
+    activeLabel: { color: '#fff' },
+    content: { flex: 1 },
+    memberToolbox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    sectionTitle: { color: '#666', fontSize: 12 },
+    selectAll: { color: '#7C3AED', fontWeight: 'bold', fontSize: 12 },
+    memberCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111', padding: 15, borderRadius: 16, marginBottom: 10 },
+    selectedMember: { backgroundColor: 'rgba(124, 58, 237, 0.05)', borderColor: 'rgba(124, 58, 237, 0.3)', borderWidth: 1 },
+    memberInfo: { flexDirection: 'row', alignItems: 'center' },
+    avatarSm: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+    memberName: { color: '#fff', fontWeight: '500' },
+    meBadge: { color: '#444', fontSize: 10, fontWeight: 'bold' },
+    historyCard: { backgroundColor: '#111', padding: 15, borderRadius: 16, marginBottom: 12 },
+    historyTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    hReason: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+    hDate: { color: '#444', fontSize: 11 },
+    hBy: { color: '#666', fontSize: 12, marginBottom: 10 },
+    hStatsRow: { flexDirection: 'row', marginBottom: 12 },
+    hStat: { fontSize: 13, fontWeight: 'bold', marginRight: 15 },
+    attendeeList: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#1d1d1d', paddingTop: 10 },
+    miniAttendee: { flexDirection: 'row', alignItems: 'center', marginRight: 12, marginBottom: 6 },
+    miniName: { fontSize: 11, fontWeight: '500' },
+    miniIcon: { fontSize: 10, marginLeft: 2 },
+    txtGreen: { color: '#4CAF50' },
+    txtRed: { color: '#F44336' },
+    txtYellow: { color: '#FFC107' },
+    dangerZone: { paddingBottom: 30, paddingTop: 10 },
+    dangerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15 },
+    dangerTxt: { color: '#444', fontWeight: 'bold', marginLeft: 10, fontSize: 13 },
+    modalBlur: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
+    modalBox: { backgroundColor: '#111', borderRadius: 25, padding: 25, borderWidth: 1, borderColor: '#333' },
+    mTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+    mSub: { color: '#666', fontSize: 14, marginBottom: 20 },
+    mInput: { backgroundColor: '#1e1e1e', color: '#fff', padding: 15, borderRadius: 15, fontSize: 16, marginBottom: 20, height: 80, textAlignVertical: 'top' },
+    mActions: { flexDirection: 'row', justifyContent: 'space-between' },
+    mBtnCancel: { padding: 15, flex: 1, alignItems: 'center' },
+    mBtnConfirm: { backgroundColor: '#7C3AED', padding: 15, flex: 1.5, borderRadius: 15, alignItems: 'center' },
+    mBtnTxtCancel: { color: '#666', fontWeight: 'bold' },
+    mBtnTxtConfirm: { color: '#fff', fontWeight: 'bold' }
 });
 
 export default GroupDetailScreen;

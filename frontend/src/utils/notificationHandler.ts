@@ -19,20 +19,20 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const callId = data.callId as string;
     const reason = data.reason || '';
 
-    // NEW channel v5: Using High Importance (4) for maximum hardware compatibility
+    // Channel v6: Ultimate Priority Call Channel
     const channelId = await notifee.createChannel({
-        id: 'rally-ring-v5',
+        id: 'rally-ring-v6',
         name: 'Squad Coordination Alerts',
-        importance: AndroidImportance.HIGH,
+        importance: 5 as any,
         sound: 'default',
         vibration: true,
-        vibrationPattern: [1000, 1000, 1000, 1000],
+        vibrationPattern: [1000, 1000, 2000, 1000],
     });
 
     await notifee.displayNotification({
         id: callId,
         title: `📞 RALLY: ${callerName}`,
-        body: reason ? `"${reason}" in ${groupName}` : `Incoming call in ${groupName}`,
+        body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
         data: { ...data },
         android: {
             channelId,
@@ -40,7 +40,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             importance: 5, // MAX
             priority: 'high',
             visibility: 1, // Public
-            ongoing: true,
+            ongoing: true, // Prevents swiping away
             autoCancel: false,
             loopSound: true,
             fullScreenIntent: {

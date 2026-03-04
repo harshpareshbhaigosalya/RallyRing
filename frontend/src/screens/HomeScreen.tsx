@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Share, Alert } from
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
 import { useStore } from '../store/useStore';
-import { Plus, Users, BellRing } from 'lucide-react-native';
-import { Vibration } from 'react-native';
+import { Plus, Users } from 'lucide-react-native';
 
 const HomeScreen = ({ navigation }: any) => {
     const { user, groups, setGroups } = useStore();
@@ -64,11 +63,6 @@ const HomeScreen = ({ navigation }: any) => {
         </TouchableOpacity>
     );
 
-    const testHardware = () => {
-        Vibration.vibrate([100, 200, 100, 200, 100, 200]);
-        Alert.alert("Hardware Test", "Vibration triggered! If you felt this, your device is ready to Rally.");
-    };
-
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -77,9 +71,6 @@ const HomeScreen = ({ navigation }: any) => {
                     <Text style={styles.welcomeTitle}>Hi, {user?.name?.split(' ')[0] || 'User'}</Text>
                 </View>
                 <View style={styles.headerActions}>
-                    <TouchableOpacity style={styles.headerIcon} onPress={testHardware}>
-                        <BellRing color="#7C3AED" size={24} />
-                    </TouchableOpacity>
                     <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('JoinGroup')}>
                         <Users color="#fff" size={24} />
                     </TouchableOpacity>

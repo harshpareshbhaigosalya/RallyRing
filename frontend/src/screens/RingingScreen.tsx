@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView, Dimensions, Platform } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import notifee from '@notifee/react-native';
 import { useStore } from '../store/useStore';
-import { Phone, PhoneOff, Check, X, Clock } from 'lucide-react-native';
+import { Phone, PhoneOff, Check, X, Clock, Users } from 'lucide-react-native';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 const RingingScreen = ({ route, navigation }: any) => {
     const { callId, groupName, callerName, reason } = route.params;
@@ -13,11 +16,11 @@ const RingingScreen = ({ route, navigation }: any) => {
     const [memberNames, setMemberNames] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        // Pulsing animation
+        // Pulsing animation for the call icon
         Animated.loop(
             Animated.sequence([
-                Animated.timing(pulse, { toValue: 1.2, duration: 1000, useNativeDriver: true }),
-                Animated.timing(pulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1.3, duration: 1500, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1, duration: 1500, useNativeDriver: true }),
             ])
         ).start();
 
@@ -67,15 +70,16 @@ const RingingScreen = ({ route, navigation }: any) => {
             if (user && callId) {
                 // Remove notification immediately on response
                 await notifee.cancelNotification(callId);
-                if (status === 'rejected') {
-                    await notifee.stopForegroundService();
-                }
 
                 await firestore().collection('call_sessions').doc(callId).update({
                     [`responses.${user.uid}`]: status
                 });
+
+                if (status === 'rejected') {
+                    await notifee.stopForegroundService();
+                    stopRingingAndExit();
+                }
             }
-            if (status === 'rejected') stopRingingAndExit();
         } catch (e) {
             console.error("DEBUG: Response update failed:", e);
         }
@@ -102,108 +106,142 @@ const RingingScreen = ({ route, navigation }: any) => {
         });
     }
 
-    const MemberList = ({ uids, icon: Icon, color }: any) => (
-        <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-                <Icon color={color} size={16} />
-                <Text style={[styles.sectionTitle, { color }]}>
-                    {uids.length} {Icon === Check ? 'Accepted' : Icon === X ? 'Rejected' : 'Pending'}
-                </Text>
-            </View>
-            <View style={styles.namesRow}>
-                {uids.map((uid: string) => (
-                    <Text key={uid} style={styles.nameBadge}>
-                        {uid === user?.uid ? 'You' : (memberNames[uid] || 'Loading...')}
-                    </Text>
-                ))}
-            </View>
+    const StatList = ({ uids, color, label }: any) => (
+        <View style={styles.statBox}>
+            <Text style={[styles.statCount, { color }]}>{uids.length}</Text>
+            <Text style={styles.statLabel}>{label}</Text>
         </View>
     );
 
     return (
         <View style={styles.container}>
-            <View style={styles.topInfo}>
-                <Text style={styles.groupText}>{groupName}</Text>
-                <Text style={styles.callerText}>{callerName} is calling...</Text>
-                {reason ? (
-                    <View style={styles.reasonBox}>
-                        <Text style={styles.reasonLabel}>REASON</Text>
-                        <Text style={styles.reasonContent}>{reason}</Text>
-                    </View>
-                ) : null}
-            </View>
-
-            <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulse }] }]} />
-
-            <ScrollView style={styles.scroll}>
-                <MemberList uids={sections.accepted} icon={Check} color="#4CAF50" />
-                <MemberList uids={sections.pending} icon={Clock} color="#FFC107" />
-                <MemberList uids={sections.rejected} icon={X} color="#F44336" />
-            </ScrollView>
-
-            {session?.responses[user?.uid || ''] === 'pending' ? (
-                <View style={styles.buttonContainer}>
-                    <TouchableOpacity
-                        style={[styles.button, styles.rejectButton]}
-                        onPress={() => handleResponse('rejected')}
-                    >
-                        <PhoneOff color="white" size={32} />
-                        <Text style={styles.buttonText}>Reject</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.button, styles.acceptButton]}
-                        onPress={() => handleResponse('accepted')}
-                    >
-                        <Phone color="white" size={32} />
-                        <Text style={styles.buttonText}>Accept</Text>
-                    </TouchableOpacity>
+            <LinearGradient
+                colors={['#1a1a1a', '#000', '#000']}
+                style={styles.gradient}
+            >
+                <View style={styles.topSection}>
+                    <Text style={styles.groupLabel}>{groupName.toUpperCase()}</Text>
+                    <Text style={styles.callerName}>{callerName}</Text>
+                    <Text style={styles.callingStatus}>Incoming Rally Call...</Text>
                 </View>
-            ) : (
-                <View style={styles.footerActionContainer}>
-                    {session?.callerId === user?.uid ? (
-                        <TouchableOpacity
-                            style={[styles.exitButton, { backgroundColor: '#F44336' }]}
-                            onPress={async () => {
-                                await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
-                            }}
-                        >
-                            <Text style={styles.exitButtonText}>END RALLY FOR ALL</Text>
-                        </TouchableOpacity>
+
+                <View style={styles.avatarSection}>
+                    <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulse }] }]} />
+                    <View style={styles.avatarMain}>
+                        <Phone color="#fff" size={40} />
+                    </View>
+                </View>
+
+                <View style={styles.reasonContainer}>
+                    {reason ? (
+                        <View style={styles.reasonBadge}>
+                            <Text style={styles.reasonText}>"{reason}"</Text>
+                        </View>
+                    ) : null}
+                </View>
+
+                <View style={styles.liveSummary}>
+                    <StatList uids={sections.accepted} color="#4CAF50" label="Accepted" />
+                    <StatList uids={sections.pending} color="#FFC107" label="Pending" />
+                    <StatList uids={sections.rejected} color="#F44336" label="Rejected" />
+                </View>
+
+                <ScrollView style={styles.memberScroll} contentContainerStyle={styles.memberList}>
+                    {Object.entries(session?.responses || {}).map(([uid, status]: [string, any]) => (
+                        <View key={uid} style={styles.memberRow}>
+                            <Text style={styles.memberName} numberOfLines={1}>
+                                {uid === user?.uid ? 'You' : (memberNames[uid] || 'Squad member')}
+                            </Text>
+                            <View style={[styles.statusTag,
+                            status === 'accepted' ? styles.tagAccepted :
+                                status === 'rejected' ? styles.tagRejected : styles.tagPending
+                            ]}>
+                                <Text style={styles.tagText}>{status.toUpperCase()}</Text>
+                            </View>
+                        </View>
+                    ))}
+                </ScrollView>
+
+                <View style={styles.bottomActions}>
+                    {session?.responses[user?.uid || ''] === 'pending' ? (
+                        <View style={styles.buttonRow}>
+                            <TouchableOpacity
+                                style={[styles.circleButton, styles.rejectBtn]}
+                                onPress={() => handleResponse('rejected')}
+                            >
+                                <PhoneOff color="white" size={32} />
+                                <Text style={styles.actionLabel}>Decline</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.circleButton, styles.acceptBtn]}
+                                onPress={() => handleResponse('accepted')}
+                            >
+                                <Phone color="white" size={32} />
+                                <Text style={styles.actionLabel}>Accept</Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        <TouchableOpacity style={styles.exitButton} onPress={stopRingingAndExit}>
-                            <Text style={styles.exitButtonText}>CLOSE VIEW</Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionFooter}>
+                            {session?.callerId === user?.uid ? (
+                                <TouchableOpacity
+                                    style={styles.fullEndButton}
+                                    onPress={async () => {
+                                        await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
+                                    }}
+                                >
+                                    <Text style={styles.fullEndButtonText}>END RALLY FOR ALL</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity style={styles.closeButton} onPress={stopRingingAndExit}>
+                                    <Text style={styles.closeButtonText}>DISMISS VIEW</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     )}
                 </View>
-            )}
+            </LinearGradient>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000', padding: 20 },
-    topInfo: { alignItems: 'center', marginTop: 60, zIndex: 10 },
-    pulseCircle: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(124, 58, 237, 0.2)', alignSelf: 'center', marginTop: -20 },
-    callerText: { fontSize: 24, fontWeight: 'bold', color: 'white', marginTop: 10 },
-    groupText: { fontSize: 16, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 },
-    reasonBox: { backgroundColor: '#1e1e1e', padding: 15, borderRadius: 12, marginTop: 20, width: '100%', alignItems: 'center' },
-    reasonLabel: { color: '#7C3AED', fontSize: 10, fontWeight: 'bold', marginBottom: 5 },
-    reasonContent: { color: '#fff', fontSize: 18, fontWeight: '600', textAlign: 'center' },
-    scroll: { flex: 1, marginTop: 40 },
-    section: { marginBottom: 25 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', marginLeft: 8, textTransform: 'uppercase' },
-    namesRow: { flexDirection: 'row', flexWrap: 'wrap' },
-    nameBadge: { backgroundColor: '#1e1e1e', color: '#fff', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, marginRight: 8, marginBottom: 8, fontSize: 12 },
-    buttonContainer: { flexDirection: 'row', bottom: 40, width: '100%', justifyContent: 'space-around', position: 'absolute', alignSelf: 'center' },
-    button: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', elevation: 5 },
-    acceptButton: { backgroundColor: '#4CAF50' },
-    rejectButton: { backgroundColor: '#F44336' },
-    buttonText: { color: 'white', marginTop: 8, fontSize: 12, fontWeight: 'bold' },
-    footerActionContainer: { position: 'absolute', bottom: 40, width: '100%', alignSelf: 'center' },
-    exitButton: { backgroundColor: '#1e1e1e', padding: 18, borderRadius: 15, width: '100%', alignItems: 'center' },
-    exitButtonText: { color: '#fff', fontWeight: 'bold' }
+    container: { flex: 1, backgroundColor: '#000' },
+    gradient: { flex: 1, padding: 30 },
+    topSection: { alignItems: 'center', marginTop: height * 0.08 },
+    groupLabel: { color: '#7C3AED', fontSize: 13, fontWeight: 'bold', letterSpacing: 3, marginBottom: 10 },
+    callerName: { color: '#fff', fontSize: 34, fontWeight: 'bold', textAlign: 'center' },
+    callingStatus: { color: '#aaa', fontSize: 16, marginTop: 8 },
+    avatarSection: { height: 200, justifyContent: 'center', alignItems: 'center', marginVertical: 30 },
+    pulseCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(124, 58, 237, 0.2)', position: 'absolute' },
+    avatarMain: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#7C3AED', justifyContent: 'center', alignItems: 'center', elevation: 20, shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 20 },
+    reasonContainer: { height: 60, justifyContent: 'center', alignItems: 'center' },
+    reasonBadge: { backgroundColor: '#1e1e1e', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 30, borderWidth: 1, borderColor: '#333' },
+    reasonText: { color: '#fff', fontSize: 16, fontStyle: 'italic' },
+    liveSummary: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20, backgroundColor: '#111', borderRadius: 20, padding: 15 },
+    statBox: { alignItems: 'center' },
+    statCount: { fontSize: 20, fontWeight: 'bold' },
+    statLabel: { color: '#666', fontSize: 10, textTransform: 'uppercase', marginTop: 4 },
+    memberScroll: { flex: 1, marginBottom: 20 },
+    memberList: { paddingBottom: 20 },
+    memberRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111', padding: 14, borderRadius: 12, marginBottom: 8 },
+    memberName: { color: '#fff', fontSize: 15, flex: 1 },
+    statusTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    tagAccepted: { backgroundColor: 'rgba(76, 175, 80, 0.2)' },
+    tagRejected: { backgroundColor: 'rgba(244, 67, 54, 0.2)' },
+    tagPending: { backgroundColor: 'rgba(255, 193, 7, 0.2)' },
+    tagText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+    bottomActions: { paddingBottom: Platform.OS === 'ios' ? 40 : 20 },
+    buttonRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+    circleButton: { width: 85, height: 85, borderRadius: 43, justifyContent: 'center', alignItems: 'center', elevation: 10 },
+    acceptBtn: { backgroundColor: '#4CAF50' },
+    rejectBtn: { backgroundColor: '#F44336' },
+    actionLabel: { color: '#fff', fontSize: 12, fontWeight: 'bold', marginTop: 10, position: 'absolute', bottom: -25 },
+    actionFooter: { width: '100%' },
+    fullEndButton: { backgroundColor: '#F44336', padding: 18, borderRadius: 18, alignItems: 'center' },
+    fullEndButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    closeButton: { backgroundColor: '#222', padding: 18, borderRadius: 18, alignItems: 'center' },
+    closeButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
 });
 
 export default RingingScreen;
