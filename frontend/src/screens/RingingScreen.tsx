@@ -40,7 +40,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                         if (!memberNames[uid]) {
                             try {
                                 const uDoc = await firestore().collection('users').doc(uid).get();
-                                if (uDoc.exists()) {
+                                if (uDoc && uDoc.exists()) {
                                     setMemberNames(prev => ({ ...prev, [uid]: uDoc.data()?.name || uid }));
                                 }
                             } catch (e) { }

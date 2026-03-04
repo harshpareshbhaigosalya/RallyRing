@@ -23,9 +23,9 @@ const App = () => {
     // 3. Handle notification interaction (Accept/Reject from background)
     const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.ACTION_PRESS && (detail.pressAction?.id === 'accept' || detail.pressAction?.id === 'default')) {
-        const { callId, groupName, callerName } = detail.notification?.data || {};
+        const { callId, groupName, callerName, reason } = detail.notification?.data || {};
         if (callId) {
-          navigate('Ringing', { callId, groupName, callerName });
+          navigate('Ringing', { callId, groupName, callerName, reason: reason || '' });
         }
       }
     });

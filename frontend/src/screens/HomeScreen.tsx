@@ -10,7 +10,6 @@ const HomeScreen = ({ navigation }: any) => {
     useEffect(() => {
         if (!user || !user.uid) return;
 
-        // Listen for groups where user is a member
         const unsubscribe = firestore()
             .collection('groups')
             .where('members', 'array-contains', user.uid)
@@ -24,7 +23,7 @@ const HomeScreen = ({ navigation }: any) => {
                 },
                 error => {
                     console.error("Firestore Error:", error);
-                    Alert.alert("Database Error", "Unable to connect to group list. " + error.message);
+                    Alert.alert("Database Error", "Unable to connect. " + error.message);
                 }
             );
 
@@ -33,7 +32,7 @@ const HomeScreen = ({ navigation }: any) => {
 
     const onShare = async (groupId: string) => {
         try {
-            await Share.share({ message: `Join my RallyRing group! ID: ${groupId}` });
+            await Share.share({ message: `Join my RallyRing! Code: ${groupId}` });
         } catch (error) {
             console.log(error);
         }
@@ -46,7 +45,7 @@ const HomeScreen = ({ navigation }: any) => {
         >
             <View style={{ flex: 1, marginRight: 10 }}>
                 <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.memberCount}>{item.members.length} members</Text>
+                <Text style={styles.memberCount}>{item.members?.length || 0} members</Text>
             </View>
             <TouchableOpacity onPress={() => onShare(item.id)} style={styles.shareButton}>
                 <Text style={styles.shareText}>Share ID</Text>
@@ -57,8 +56,23 @@ const HomeScreen = ({ navigation }: any) => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Welcome, {user?.name}</Text>
-                <Text style={styles.uid}>Your ID: {user?.uid}</Text>
+                <View>
+                    <Text style={styles.appName}>RALLYRING</Text>
+                    <Text style={styles.welcomeTitle}>Hi, {user?.name?.split(' ')[0] || 'User'}</Text>
+                </View>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('JoinGroup')}>
+                        <Users color="#fff" size={24} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('CreateGroup')}>
+                        <Plus color="#fff" size={24} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={styles.infoStrip}>
+                <Text style={styles.infoText}>ID: {user?.uid}</Text>
+                <Text style={styles.infoText}>{groups.length} Groups</Text>
             </View>
 
             <FlatList
@@ -66,35 +80,36 @@ const HomeScreen = ({ navigation }: any) => {
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
-                ListEmptyComponent={<Text style={styles.empty}>No groups yet. Create or Join one!</Text>}
+                ListEmptyComponent={
+                    <View style={styles.emptyBox}>
+                        <Users color="#222" size={60} />
+                        <Text style={styles.emptyMain}>No Rally Groups</Text>
+                        <Text style={styles.emptySub}>Create a group to start summoning your squad!</Text>
+                    </View>
+                }
             />
-
-            <View style={styles.fabContainer}>
-                <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('JoinGroup')}>
-                    <Users color="white" size={24} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateGroup')}>
-                    <Plus color="white" size={24} />
-                </TouchableOpacity>
-            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    header: { padding: 20, paddingTop: 60, backgroundColor: '#1e1e1e' },
-    title: { fontSize: 24, color: '#fff', fontWeight: 'bold' },
-    uid: { color: '#aaa', marginTop: 5 },
+    header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 25, backgroundColor: '#111', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    appName: { color: '#7C3AED', fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 2 },
+    welcomeTitle: { fontSize: 26, color: '#fff', fontWeight: 'bold' },
+    headerActions: { flexDirection: 'row' },
+    headerIcon: { marginLeft: 20, backgroundColor: '#1e1e1e', padding: 10, borderRadius: 12 },
+    infoStrip: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e1e1e' },
+    infoText: { color: '#666', fontSize: 13, fontWeight: '500' },
     list: { padding: 15 },
-    card: { backgroundColor: '#1e1e1e', padding: 20, borderRadius: 15, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    card: { backgroundColor: '#1e1e1e', padding: 20, borderRadius: 16, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#7C3AED' },
     groupName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    memberCount: { color: '#aaa', marginTop: 5 },
-    shareText: { color: '#7C3AED', fontWeight: 'bold' },
-    shareButton: { padding: 10 },
-    empty: { color: '#666', textAlign: 'center', marginTop: 100 },
-    fabContainer: { position: 'absolute', bottom: 30, right: 20, flexDirection: 'row' },
-    fab: { backgroundColor: '#7C3AED', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 15 }
+    memberCount: { color: '#888', marginTop: 4, fontSize: 14 },
+    shareButton: { paddingHorizontal: 15, paddingVertical: 8, backgroundColor: 'rgba(124, 58, 237, 0.1)', borderRadius: 10 },
+    shareText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 12 },
+    emptyBox: { alignItems: 'center', marginTop: 100, paddingHorizontal: 40 },
+    emptyMain: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 20 },
+    emptySub: { color: '#555', fontSize: 14, marginTop: 8, textAlign: 'center', lineHeight: 20 }
 });
 
 export default HomeScreen;
