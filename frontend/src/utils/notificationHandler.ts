@@ -40,9 +40,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             category: AndroidCategory.CALL,
             importance: 5, // MAX
             priority: 'high',
-            ongoing: true, // Prevents swipe-away
+            visibility: 1, // Public
+            ongoing: true,
             autoCancel: false,
-            loopSound: true, // Infinite ringtone loop
+            loopSound: true,
             fullScreenIntent: {
                 id: 'default',
                 launchActivity: 'com.rallyring.MainActivity',
