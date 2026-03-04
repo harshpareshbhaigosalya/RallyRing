@@ -118,15 +118,33 @@ app.post('/trigger-call', async (req, res) => {
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // 3. Get FCM Tokens of targeted members
-        const memberDocs = await db.collection('users').where('uid', 'in', actualTargets).get();
-        const tokens: string[] = [];
-        memberDocs.forEach(doc => {
-            const data = doc.data();
-            if (data.fcmToken) {
-                tokens.push(data.fcmToken);
+        // 3. Get FCM Tokens of targeted members (Handling 10-item limit of Firestore 'in' query)
+        const fetchTokens = async (uids: string[]) => {
+            const chunks = [];
+            for (let i = 0; i < uids.length; i += 10) {
+                chunks.push(uids.slice(i, i + 10));
             }
-        });
+
+            const results = await Promise.all(
+                chunks.map(chunk => db.collection('users').where('uid', 'in', chunk).get())
+            );
+
+            const tokens: string[] = [];
+            const userDocs: admin.firestore.QueryDocumentSnapshot[] = [];
+
+            results.forEach(snap => {
+                snap.forEach(doc => {
+                    userDocs.push(doc);
+                    const data = doc.data();
+                    if (data.fcmToken) {
+                        tokens.push(data.fcmToken);
+                    }
+                });
+            });
+            return { tokens, userDocs };
+        };
+
+        const { tokens, userDocs } = await fetchTokens(actualTargets);
 
         if (tokens.length === 0) {
             return res.status(200).send({ message: "No other members to call", callId });
@@ -134,7 +152,7 @@ app.post('/trigger-call', async (req, res) => {
 
         // 4. Send FCM Data-only message (High Priority)
         let callerName = "Someone";
-        const callerDoc = memberDocs.docs.find(d => d.id === callerId);
+        const callerDoc = userDocs.find(d => d.id === callerId);
 
         if (callerDoc) {
             callerName = callerDoc.data().name;

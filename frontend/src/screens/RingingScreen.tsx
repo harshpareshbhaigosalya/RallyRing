@@ -54,16 +54,31 @@ const RingingScreen = ({ route, navigation }: any) => {
 
     const handleResponse = async (status: 'accepted' | 'rejected') => {
         try {
-            if (user) {
-                await firestore()
-                    .collection('call_sessions')
-                    .doc(callId)
-                    .update({
-                        [`responses.${user.uid}`]: status
-                    });
+            if (user && callId) {
+                const docRef = firestore().collection('call_sessions').doc(callId);
+
+                // Update current user's response
+                await docRef.update({
+                    [`responses.${user.uid}`]: status
+                });
+
+                // Fetch latest state to check if all responded
+                const latestDoc = await docRef.get();
+                if (latestDoc && latestDoc.exists()) {
+                    const data = latestDoc.data();
+                    if (data && data.responses) {
+                        const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
+                        if (allResponded) {
+                            console.log("All members responded. Ending session.");
+                            await docRef.update({ status: 'ended' });
+                        }
+                    }
+                }
             }
             if (status === 'rejected') stopRingingAndExit();
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error("DEBUG: Response update failed:", e);
+        }
     };
 
     const stopRingingAndExit = async () => {

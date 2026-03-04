@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Share, ActivityIndicator } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
@@ -244,8 +244,16 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                             <TouchableOpacity style={styles.modalCancel} onPress={() => setShowCallModal(false)}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalConfirm} onPress={handleTriggerCall}>
-                                <Text style={styles.confirmText}>Notify {selectedMembers.length} People</Text>
+                            <TouchableOpacity
+                                style={[styles.modalConfirm, (loadingCall || selectedMembers.length === 0) && { opacity: 0.5 }]}
+                                onPress={handleTriggerCall}
+                                disabled={loadingCall || selectedMembers.length === 0}
+                            >
+                                {loadingCall ? (
+                                    <ActivityIndicator color="white" size="small" />
+                                ) : (
+                                    <Text style={styles.confirmText}>Notify {selectedMembers.length} People</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>

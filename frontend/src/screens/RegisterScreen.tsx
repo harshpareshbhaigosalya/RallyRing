@@ -34,21 +34,34 @@ const RegisterScreen = ({ navigation }: any) => {
         }
         setLoading(true);
         try {
-            const token = await messaging().getToken();
-            console.log("FCM Token secured");
-            const data = await registerUser(fullName, token);
+            console.log("Starting registration process...");
 
+            // Critical for Android/iOS device registration before token retrieval
+            await messaging().registerDeviceForRemoteMessages();
+            console.log("Device registered for remote messages");
+
+            const token = await messaging().getToken();
+            if (!token) {
+                throw new Error("Unable to retrieve firebase token. Check Google Play Services.");
+            }
+            console.log("FCM Token secured:", token.substring(0, 10) + "...");
+
+            const data = await registerUser(fullName, token);
             if (data && data.uid) {
                 setUser({ uid: data.uid, name: fullName, fcmToken: token });
-                console.log("User registered with UID:", data.uid);
+                console.log("User registered successfully with UID:", data.uid);
             } else {
-                throw new Error("Backend did not return a valid user ID.");
+                throw new Error("Backend registration call failed - no UID returned.");
             }
         } catch (error: any) {
-            console.error("Registration error:", error);
+            console.error("DEBUG: Registration failed with error:", error);
+            let userMsg = "Please check your internet connection.";
+            if (error.message?.includes("SERVICE_NOT_AVAILABLE")) userMsg = "Firebase services are temporarily unavailable. Please try again.";
+            if (error.message?.includes("backend")) userMsg = "The backend server is not responding. Please try again later.";
+
             Alert.alert(
                 "Registration Failed",
-                error.message || "Please check your internet and if the backend is running."
+                `${userMsg}\n\nTechnical Error: ${error.message || 'Unknown'}`
             );
         } finally {
             setLoading(false);

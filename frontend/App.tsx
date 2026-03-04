@@ -30,9 +30,22 @@ const App = () => {
       }
     });
 
-    // Listen for background messages that open the app
+    // 4. Handle initial notification (when app is opened from a notification)
+    const checkInitialNotification = async () => {
+      const initial = await notifee.getInitialNotification();
+      if (initial && initial.notification?.data?.callId) {
+        const { callId, groupName, callerName, reason } = initial.notification.data;
+        navigate('Ringing', { callId, groupName, callerName, reason: reason || '' });
+      }
+    };
+    checkInitialNotification();
+
+    // 5. Listen for background messages that open the app (FCM fallback)
     messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('Notification caused app to open from background state:', remoteMessage.notification);
+      if (remoteMessage.data?.callId) {
+        const { callId, groupName, callerName, reason } = remoteMessage.data;
+        navigate('Ringing', { callId, groupName, callerName, reason: (reason as string) || '' });
+      }
     });
 
     return () => {
