@@ -16,10 +16,23 @@ const RegisterScreen = ({ navigation }: any) => {
             const enabled =
                 authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
                 authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+            // Check for Power Management (Battery Optimization) - Crucial for background work
+            const battery = await messaging().isDeviceRegisteredForRemoteMessages; // just a placeholder for check
+
             if (!enabled) {
                 Alert.alert(
                     "Permissions Required",
-                    "Please enable notifications in your phone settings so you don't miss any Rally calls!"
+                    "RallyRing needs notification permissions to alert you for important calls. Please enable them in settings."
+                );
+            }
+
+            // Power Management guidance
+            if (Platform.OS === 'android') {
+                Alert.alert(
+                    "Background Reliability",
+                    "To ensure you receive calls even when your phone is locked or the app is closed, please ensure:\n\n1. Battery Optimization is set to 'Don't Optimize' for RallyRing.\n2. Notifications are set to 'Urgent' or 'High Importance'.",
+                    [{ text: "OK" }]
                 );
             }
         };

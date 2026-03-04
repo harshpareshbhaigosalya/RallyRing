@@ -65,6 +65,12 @@ const RingingScreen = ({ route, navigation }: any) => {
     const handleResponse = async (status: 'accepted' | 'rejected') => {
         try {
             if (user && callId) {
+                // Remove notification immediately on response
+                await notifee.cancelNotification(callId);
+                if (status === 'rejected') {
+                    await notifee.stopForegroundService();
+                }
+
                 await firestore().collection('call_sessions').doc(callId).update({
                     [`responses.${user.uid}`]: status
                 });

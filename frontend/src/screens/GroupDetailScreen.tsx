@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Tex
 import firestore from '@react-native-firebase/firestore';
 import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
-import { PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw } from 'lucide-react-native';
+import { PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, History, Calendar, ChevronRight } from 'lucide-react-native';
+import notifee from '@notifee/react-native';
 
 const GroupDetailScreen = ({ route, navigation }: any) => {
     const { groupId } = route.params;
@@ -15,6 +16,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
     const [showCallModal, setShowCallModal] = useState(false);
     const [callReason, setCallReason] = useState('');
+    const [history, setHistory] = useState<any[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         const unsubGroup = firestore().collection('groups').doc(groupId).onSnapshot(doc => {
@@ -56,7 +59,19 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 }
             });
 
-        return () => { unsubGroup(); unsubCall(); };
+        const unsubHistory = firestore()
+            .collection('call_sessions')
+            .where('groupId', '==', groupId)
+            .where('status', '==', 'ended')
+            .orderBy('createdAt', 'desc')
+            .limit(10)
+            .onSnapshot(snapshot => {
+                if (snapshot) {
+                    setHistory(snapshot.docs.map(doc => doc.data()));
+                }
+            });
+
+        return () => { unsubGroup(); unsubCall(); unsubHistory(); };
     }, [groupId]);
 
     const handleToggleMember = (mId: string) => {
@@ -103,9 +118,23 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const handleStatusResponse = async (status: 'accepted' | 'rejected') => {
         if (!activeCall || !user) return;
         try {
-            await firestore().collection('call_sessions').doc(activeCall.callId).update({
+            await notifee.cancelNotification(activeCall.callId);
+
+            const docRef = firestore().collection('call_sessions').doc(activeCall.callId);
+            await docRef.update({
                 [`responses.${user.uid}`]: status
             });
+
+            // Re-fetch to check if session should end
+            const latest = await docRef.get();
+            const data = latest.data();
+            if (data?.responses) {
+                const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
+                if (allResponded) {
+                    await docRef.update({ status: 'ended' });
+                }
+            }
+
             if (status === 'accepted') {
                 navigation.navigate('Ringing', {
                     callId: activeCall.callId,
@@ -226,39 +255,87 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 </TouchableOpacity>
             )}
 
-            {/* Member Management UI */}
-            <View style={styles.sectionHeader}>
-                <Text style={styles.memberHeader}>Select Members to Notify</Text>
-                <TouchableOpacity onPress={handleSelectAll}>
-                    <Text style={styles.selectAllText}>
-                        {selectedMembers.length === group?.members.length - 1 ? 'Deselect All' : 'Select All'}
-                    </Text>
+            {/* Member Selection Section */}
+            {!activeCall && (
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.memberHeader}>Notify Squad</Text>
+                    <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
+                        <Text style={styles.selectAllText}>
+                            {selectedMembers.length === group?.members.length - 1 ? 'Deselect All' : 'Select All'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            <View style={styles.tabContainer}>
+                <TouchableOpacity
+                    style={[styles.tab, !showHistory && styles.activeTab]}
+                    onPress={() => setShowHistory(false)}
+                >
+                    <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>Members</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, showHistory && styles.activeTab]}
+                    onPress={() => setShowHistory(true)}
+                >
+                    <Text style={[styles.tabText, showHistory && styles.activeTabText]}>History {history.length > 0 ? `(${history.length})` : ''}</Text>
                 </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.scroll}>
-                {group?.members.map((m: string) => (
-                    <TouchableOpacity
-                        key={m}
-                        style={[
-                            styles.memberItem,
-                            m === user?.uid && styles.meItem,
-                            selectedMembers.includes(m) && styles.selectedItem
-                        ]}
-                        onPress={() => handleToggleMember(m)}
-                        disabled={m === user?.uid}
-                    >
-                        <View style={styles.row}>
-                            {m === user?.uid ? null : (
-                                selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={20} /> : <Circle color="#666" size={20} />
-                            )}
-                            <Text style={[styles.memberText, m === user?.uid && { marginLeft: 0 }]}>
-                                {m === user?.uid ? `You (${memberData[m] || user.name})` : (memberData[m] || `User ${m}`)}
-                            </Text>
+                {!showHistory ? (
+                    group?.members.map((m: string) => (
+                        <TouchableOpacity
+                            key={m}
+                            style={[
+                                styles.memberItem,
+                                m === user?.uid && styles.meItem,
+                                selectedMembers.includes(m) && styles.selectedItem
+                            ]}
+                            onPress={() => handleToggleMember(m)}
+                            disabled={m === user?.uid}
+                        >
+                            <View style={styles.row}>
+                                {m === user?.uid ? null : (
+                                    selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={20} /> : <Circle color="#666" size={20} />
+                                )}
+                                <Text style={[styles.memberText, m === user?.uid && { marginLeft: 0 }]}>
+                                    {m === user?.uid ? `You (${memberData[m] || user.name})` : (memberData[m] || `User ${m}`)}
+                                </Text>
+                            </View>
+                            {m === group.admin && <Text style={styles.adminTag}>ADMIN</Text>}
+                        </TouchableOpacity>
+                    ))
+                ) : (
+                    history.length > 0 ? (
+                        history.map((h, idx) => (
+                            <View key={idx} style={styles.historyItem}>
+                                <View style={styles.historyTop}>
+                                    <View style={styles.historyMeta}>
+                                        <Calendar color="#7C3AED" size={12} />
+                                        <Text style={styles.historyDate}>
+                                            {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleDateString() : 'Recent'}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.historyCaller}>By {memberData[h.callerId] || 'Squad'}</Text>
+                                </View>
+                                <Text style={styles.historyReason}>"{h.reason || 'Rally'}"</Text>
+                                <View style={styles.memberStatusLog}>
+                                    {Object.entries(h.responses).map(([uid, status]: [string, any]) => (
+                                        <Text key={uid} style={[styles.miniStatusBadge, status === 'accepted' ? styles.badgeGreen : status === 'rejected' ? styles.badgeRed : styles.badgeAmber]}>
+                                            {memberData[uid] || '...'} {status === 'accepted' ? '✅' : status === 'rejected' ? '❌' : '⏳'}
+                                        </Text>
+                                    ))}
+                                </View>
+                            </View>
+                        ))
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <History color="#333" size={40} />
+                            <Text style={styles.emptyText}>No past rallies yet</Text>
                         </View>
-                        {m === group.admin && <Text style={styles.adminTag}>ADMIN</Text>}
-                    </TouchableOpacity>
-                ))}
+                    )
+                )}
             </ScrollView>
 
             {/* Footer Actions */}
@@ -328,10 +405,11 @@ const styles = StyleSheet.create({
     statusItem: { color: '#aaa', marginRight: 15, fontSize: 13 },
     endButton: { backgroundColor: '#F44336', padding: 10, borderRadius: 8, marginTop: 15, alignItems: 'center' },
     endButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    memberHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    selectAllText: { color: '#7C3AED', fontWeight: 'bold' },
-    scroll: { flex: 1 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingTop: 10 },
+    memberHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1 },
+    selectAllBtn: { paddingVertical: 5, paddingHorizontal: 12, backgroundColor: 'rgba(124, 58, 237, 0.1)', borderRadius: 20 },
+    selectAllText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 13 },
+    scroll: { flex: 1, marginBottom: 10 },
     memberItem: { backgroundColor: '#1e1e1e', padding: 15, borderRadius: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     selectedItem: { backgroundColor: 'rgba(124, 58, 237, 0.1)', borderColor: '#7C3AED', borderWidth: 1 },
     meItem: { opacity: 0.8 },
@@ -344,6 +422,27 @@ const styles = StyleSheet.create({
     rejectSmall: { backgroundColor: '#F44336', marginRight: 5 },
     buttonTextSmall: { color: 'white', fontWeight: 'bold', fontSize: 13 },
     adminTag: { color: '#7C3AED', fontSize: 10, fontWeight: 'bold', backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    tabContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#111', borderRadius: 12, padding: 4 },
+    tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+    activeTab: { backgroundColor: '#1e1e1e' },
+    tabText: { color: '#666', fontWeight: 'bold', fontSize: 14 },
+    activeTabText: { color: '#7C3AED' },
+    historyItem: { backgroundColor: '#1e1e1e', padding: 15, borderRadius: 15, marginBottom: 12, borderWidth: 1, borderColor: '#333' },
+    historyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    historyMeta: { flexDirection: 'row', alignItems: 'center' },
+    historyDate: { color: '#999', fontSize: 11, marginLeft: 5 },
+    historyCaller: { color: '#7C3AED', fontSize: 11, fontWeight: 'bold' },
+    historyReason: { color: '#fff', fontSize: 15, fontWeight: '500', marginBottom: 10 },
+    statLine: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#2e2e2e', paddingTop: 10 },
+    statItem: { fontSize: 12, color: '#aaa', marginRight: 15 },
+    memberStatusLog: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#2e2e2e', paddingTop: 10 },
+    miniStatusBadge: { fontSize: 10, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 5, marginBottom: 5, fontWeight: 'bold' },
+    badgeGreen: { backgroundColor: 'rgba(76, 175, 80, 0.1)', color: '#4CAF50' },
+    badgeRed: { backgroundColor: 'rgba(244, 67, 54, 0.1)', color: '#F44336' },
+    badgeAmber: { backgroundColor: 'rgba(255, 193, 7, 0.1)', color: '#FFC107' },
+    emptyContainer: { alignItems: 'center', marginTop: 100 },
+    emptyText: { color: '#444', marginTop: 15, fontSize: 16 },
+
 
     footer: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
     deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
