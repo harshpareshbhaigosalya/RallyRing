@@ -20,6 +20,7 @@ const AppNavigator = () => {
         <NavigationContainer ref={navigationRef}>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {!user ? (
+                    // Not logged in
                     <Stack.Screen name="Register" component={RegisterScreen} />
                 ) : (
                     <>
@@ -27,13 +28,23 @@ const AppNavigator = () => {
                         <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
                         <Stack.Screen name="JoinGroup" component={JoinGroupScreen} />
                         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
-                        <Stack.Screen
-                            name="Ringing"
-                            component={RingingScreen}
-                            options={{ presentation: 'modal' }}
-                        />
                     </>
                 )}
+                {/*
+                 * RallyRing screen is ALWAYS registered regardless of auth state.
+                 * This is critical: when the app is opened cold from a notification,
+                 * the user is already authenticated (zustand persists to AsyncStorage),
+                 * but we need Ringing to be a valid route at any point.
+                 */}
+                <Stack.Screen
+                    name="Ringing"
+                    component={RingingScreen}
+                    options={{
+                        presentation: 'modal',
+                        gestureEnabled: false, // Prevent swipe-to-dismiss during active call
+                        cardStyle: { backgroundColor: '#000' },
+                    }}
+                />
             </Stack.Navigator>
         </NavigationContainer>
     );
