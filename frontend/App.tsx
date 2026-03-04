@@ -35,7 +35,17 @@ const App = () => {
       const initial = await notifee.getInitialNotification();
       if (initial && initial.notification?.data?.callId) {
         const { callId, groupName, callerName, reason } = initial.notification.data;
-        navigate('Ringing', { callId, groupName, callerName, reason: reason || '' });
+
+        // Wait up to 3 seconds for navigator to be ready
+        let attempts = 0;
+        const interval = setInterval(() => {
+          if (navigate('Ringing', { callId, groupName, callerName, reason: reason || '' })) {
+            clearInterval(interval);
+          } else if (attempts > 30) {
+            clearInterval(interval);
+          }
+          attempts++;
+        }, 100);
       }
     };
     checkInitialNotification();
