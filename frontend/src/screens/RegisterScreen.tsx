@@ -1,46 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import { registerUser } from '../api/auth';
 import { useStore } from '../store/useStore';
+import { Bell, ShieldCheck } from 'lucide-react-native';
 
 const RegisterScreen = ({ navigation }: any) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPermissionWall, setShowPermissionWall] = useState(true);
+    const [permissionStage, setPermissionStage] = useState(0); // 0: Notifications, 1: Battery/System
     const { setUser } = useStore();
 
-    useEffect(() => {
-        const checkPermissions = async () => {
-            if (Platform.OS === 'android') {
-                // 1. Notification Permission (Standard)
-                const authStatus = await messaging().requestPermission();
-                const enabled =
-                    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    const requestMainPermission = async () => {
+        setLoading(true);
+        try {
+            const authStatus = await messaging().requestPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-                if (!enabled) {
-                    Alert.alert(
-                        "Notifications Needed",
-                        "RallyRing is useless without notifications! Please allow them to hear when your squad needs you.",
-                        [{ text: "Open Settings", onPress: () => messaging().requestPermission() }]
-                    );
-                }
-
-                // 2. Overlay Permission (For Full Screen Call UI)
-                // We'll just warn them for now as direct prompt is complex, 
-                // but essential for 'Call' style behavior
-
-                // 3. Battery Optimization (Highly recommended)
-                Alert.alert(
-                    "Enable High Reliability",
-                    "To ensure calls ring even when your phone is asleep, please set RallyRing battery usage to 'Unrestricted' in settings.",
-                    [{ text: "I'll do it", style: 'default' }]
-                );
+            if (enabled) {
+                setPermissionStage(1);
+            } else {
+                Alert.alert("Permission Required", "RallyRing cannot alert you without notifications. Please allow them manually.");
+                setPermissionStage(1);
             }
-        };
-        checkPermissions();
-    }, []);
+        } catch (e) {
+            setPermissionStage(1);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const finishPermissions = () => {
+        setShowPermissionWall(false);
+    };
 
     const handleRegister = async () => {
         const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
@@ -50,58 +46,72 @@ const RegisterScreen = ({ navigation }: any) => {
         }
         setLoading(true);
         try {
-            console.log("DEBUG: Starting registration process flow...");
-
-            // 1. Check if device is registered (Essential for Android FCM)
             if (Platform.OS === 'android') {
                 await messaging().registerDeviceForRemoteMessages();
-                console.log("DEBUG: Android device registered for remote messages.");
             }
 
-            // 2. Fetch the FCM token
             const token = await messaging().getToken();
-            if (!token) {
-                throw new Error("Unable to retrieve Firebase token. Ensure Google Play Services are working.");
-            }
-            console.log("DEBUG: FCM Token secured:", token.substring(0, 15) + "...");
+            if (!token) throw new Error("Unable to retrieve Firebase token.");
 
-            // 3. Register on our backend
-            console.log("DEBUG: Calling backend registration for:", fullName);
             const data = await registerUser(fullName, token);
 
             if (data && data.uid) {
                 setUser({ uid: data.uid, name: fullName, fcmToken: token });
-                console.log("DEBUG: Final user set with UID:", data.uid);
             } else {
-                throw new Error("Backend failed to return a valid UID. Check server logs.");
+                throw new Error("Backend failed to return a valid UID.");
             }
         } catch (error: any) {
-            console.error("DEBUG: CRITICAL REGISTRATION ERROR:", error);
-
-            let userFriendlyMsg = "Something went wrong during registration.";
-            if (error.message?.includes("SERVICE_NOT_AVAILABLE")) {
-                userFriendlyMsg = "Google Play Services or Firebase is currently unavailable on your device.";
-            } else if (error.message?.includes("Network Error")) {
-                userFriendlyMsg = "Internet connection lost. Please check your data or Wi-Fi.";
-            } else if (error.message?.includes("backend")) {
-                userFriendlyMsg = "The server is currently undergoing maintenance. Please try again in a few minutes.";
-            }
-
-            Alert.alert(
-                "Registration Failed",
-                `${userFriendlyMsg}\n\nTechnical Details: ${error.message || 'Unknown'}`
-            );
+            Alert.alert("Registration Failed", error.message || 'Unknown error');
         } finally {
             setLoading(false);
         }
     };
 
+    if (showPermissionWall) {
+        return (
+            <View style={styles.wallContainer}>
+                <View style={styles.permissionBox}>
+                    {permissionStage === 0 ? (
+                        <>
+                            <View style={styles.iconCircle}>
+                                <Bell color="#7C3AED" size={40} />
+                            </View>
+                            <Text style={styles.wallTitle}>Enable Notifications</Text>
+                            <Text style={styles.wallText}>
+                                RallyRing needs to alert you when your squad starts a Rally.
+                                This will make your phone ring even when locked.
+                            </Text>
+                            <TouchableOpacity style={styles.primeButton} onPress={requestMainPermission} disabled={loading}>
+                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primeButtonText}>Allow Access</Text>}
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
+                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+                                <ShieldCheck color="#4CAF50" size={40} />
+                            </View>
+                            <Text style={styles.wallTitle}>System Reliability</Text>
+                            <Text style={styles.wallText}>
+                                For 100% reliability, ensure RallyRing is:{"\n"}
+                                1. Set to "Unrestricted" Battery usage.{"\n"}
+                                2. Allowed to "Display over other apps".
+                            </Text>
+                            <TouchableOpacity style={[styles.primeButton, { backgroundColor: '#4CAF50' }]} onPress={finishPermissions} disabled={loading}>
+                                <Text style={styles.primeButtonText}>Got it, Let's Start!</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <View style={styles.titleContainer}>
                 <Text style={styles.appName}>RALLYRING</Text>
-                <Text style={styles.title}>Join the Ring</Text>
-                <Text style={styles.subtitle}>Coordinate instantly with your squad</Text>
+                <Text style={styles.title}>Your Name</Text>
+                <Text style={styles.subtitle}>Last step to join the squad</Text>
             </View>
 
             <View style={styles.form}>
@@ -111,47 +121,44 @@ const RegisterScreen = ({ navigation }: any) => {
                     placeholderTextColor="#666"
                     value={firstName}
                     onChangeText={setFirstName}
-                    autoCorrect={false}
+                    autoFocus
                 />
-
                 <TextInput
                     style={styles.input}
                     placeholder="Last Name"
                     placeholderTextColor="#666"
                     value={lastName}
                     onChangeText={setLastName}
-                    autoCorrect={false}
                 />
-
                 <TouchableOpacity
                     style={[styles.button, loading && { opacity: 0.7 }]}
                     onPress={handleRegister}
                     disabled={loading}
                 >
-                    {loading ? (
-                        <ActivityIndicator color="white" size="small" />
-                    ) : (
-                        <Text style={styles.buttonText}>Get Started</Text>
-                    )}
+                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Complete Setup</Text>}
                 </TouchableOpacity>
             </View>
-
-            <Text style={styles.disclaimer}>By joining, you agree to receive notification alerts for group calls.</Text>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000', padding: 25, justifyContent: 'center' },
+    wallContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', padding: 30 },
+    permissionBox: { backgroundColor: '#111', borderRadius: 30, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: '#222' },
+    iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(124, 58, 237, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 25 },
+    wallTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+    wallText: { color: '#aaa', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 35 },
+    primeButton: { backgroundColor: '#7C3AED', width: '100%', padding: 18, borderRadius: 15, alignItems: 'center' },
+    primeButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     titleContainer: { alignItems: 'center', marginBottom: 50 },
     appName: { color: '#7C3AED', fontSize: 14, fontWeight: 'bold', letterSpacing: 4, marginBottom: 10 },
-    title: { fontSize: 38, color: '#fff', fontWeight: 'bold' },
-    subtitle: { fontSize: 16, color: '#666', marginTop: 8, textAlign: 'center' },
+    title: { fontSize: 32, color: '#fff', fontWeight: 'bold' },
+    subtitle: { fontSize: 16, color: '#666', marginTop: 8 },
     form: { width: '100%' },
     input: { backgroundColor: '#111', color: '#fff', padding: 18, borderRadius: 15, fontSize: 18, marginBottom: 15, borderWidth: 1, borderColor: '#222' },
-    button: { backgroundColor: '#7C3AED', padding: 18, borderRadius: 15, alignItems: 'center', shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 10 },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    disclaimer: { color: '#444', fontSize: 12, textAlign: 'center', marginTop: 30, paddingHorizontal: 40, lineHeight: 18 }
+    button: { backgroundColor: '#7C3AED', padding: 18, borderRadius: 15, alignItems: 'center' },
+    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
 });
 
 export default RegisterScreen;
