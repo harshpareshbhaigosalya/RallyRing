@@ -17,13 +17,11 @@ app.get('/', (req, res) => {
 });
 
 // Firebase initialization
-let serviceAccount;
+let serviceAccount: any;
 
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Use environment variable in production
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 } else {
-    // Fallback to local file in development
     const serviceAccountPath = path.join(__dirname, '../service-account.json');
     if (fs.existsSync(serviceAccountPath)) {
         serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
@@ -36,14 +34,12 @@ if (serviceAccount && admin.apps.length === 0) {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
-} else if (!serviceAccount) {
-    console.error("Firebase admin failed to initialize - missing credentials.");
+    console.log("Firebase Admin initialized");
 }
 
 const db = admin.firestore();
 const fcm = admin.messaging();
 
-// Helper: Generate unique 8-character ID
 const generateUid = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
 };
@@ -115,11 +111,13 @@ app.post('/trigger-call', async (req, res) => {
             status: 'ringing',
             responses,
             targetUids: actualTargets,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            timeoutAt: Date.now() + 600000 // 10 minutes auto-timeout (optional check)
         });
 
         // 3. Get FCM Tokens of targeted members (Handling 10-item limit of Firestore 'in' query)
         const fetchTokens = async (uids: string[]) => {
+            if (!uids || uids.length === 0) return { tokens: [], userDocs: [] };
             const chunks = [];
             for (let i = 0; i < uids.length; i += 10) {
                 chunks.push(uids.slice(i, i + 10));
@@ -147,21 +145,24 @@ app.post('/trigger-call', async (req, res) => {
         const { tokens, userDocs } = await fetchTokens(actualTargets);
 
         if (tokens.length === 0) {
+            console.log(`[trigger-call] No valid FCM tokens found for targets in group ${groupId}`);
             return res.status(200).send({ message: "No other members to call", callId });
         }
 
-        // 4. Send FCM Data-only message (High Priority)
+        // 4. Identify Caller (Get name for notification)
         let callerName = "Someone";
-        const callerDoc = userDocs.find(d => d.id === callerId);
+        let callerDocSnapshot = userDocs.find(d => d.id === callerId);
 
-        if (callerDoc) {
-            callerName = callerDoc.data().name;
-        } else {
-            // Fallback: direct lookup if the IN query failed to include the caller
-            const directCallerDoc = await db.collection('users').doc(callerId).get();
-            if (directCallerDoc.exists) {
-                callerName = directCallerDoc.data()?.name || callerId;
+        if (!callerDocSnapshot) {
+            // Force fetch caller doc if not already in batch (usually caller is excluded from targets)
+            const directDocLookup = await db.collection('users').doc(callerId).get();
+            if (directDocLookup.exists) {
+                callerDocSnapshot = directDocLookup as any;
             }
+        }
+
+        if (callerDocSnapshot) {
+            callerName = (callerDocSnapshot.data() as any).name || "Someone";
         }
 
         const message = {
@@ -182,7 +183,7 @@ app.post('/trigger-call', async (req, res) => {
         };
 
         const response = await fcm.sendEachForMulticast(message);
-        console.log(`Successfully sent ${response.successCount} messages to ${tokens.length} tokens`);
+        console.log(`[trigger-call] Sent to ${response.successCount}/${tokens.length} members by ${callerName}`);
 
         res.status(200).send({
             callId,
@@ -192,24 +193,17 @@ app.post('/trigger-call', async (req, res) => {
         });
     } catch (error: any) {
         console.error("Error triggering call:", error);
-        res.status(500).send({
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        res.status(500).send({ error: error.message });
     }
 });
 
 /**
- * Stop Call (e.g. timeout or cancelled)
+ * Stop Call (Manual endpoint)
  */
 app.post('/stop-call', async (req, res) => {
-    const { callId, groupId } = req.body;
+    const { callId } = req.body;
     try {
         await db.collection('call_sessions').doc(callId).update({ status: 'ended' });
-
-        // TODO: Send a STOP signal via FCM to dismiss notifications on all devices
-        // ... implementation similar to trigger-call with type: 'STOP_CALL'
-
         res.status(200).send({ success: true });
     } catch (error) {
         res.status(500).send({ error: "Failed to stop call" });

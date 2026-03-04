@@ -25,16 +25,26 @@ const RingingScreen = ({ route, navigation }: any) => {
             .collection('call_sessions')
             .doc(callId)
             .onSnapshot(async doc => {
-                if (!doc || !doc.exists || doc.data()?.status === 'ended') {
+                const data = doc?.data();
+                if (!doc || !doc.exists || data?.status === 'ended') {
                     stopRingingAndExit();
                     return;
                 }
-                const data = doc.data();
-                if (!data) return;
+
                 setSession(data);
 
+                // Auto-end check: If everyone responded, end it for ALL
+                if (data?.responses && data.status === 'ringing') {
+                    const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
+                    if (allResponded) {
+                        try {
+                            await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
+                        } catch (e) { }
+                    }
+                }
+
                 // Fetch names for all members in the session if not already fetched
-                if (data.responses) {
+                if (data?.responses) {
                     const uids = Object.keys(data.responses);
                     for (const uid of uids) {
                         if (!memberNames[uid]) {
@@ -55,25 +65,9 @@ const RingingScreen = ({ route, navigation }: any) => {
     const handleResponse = async (status: 'accepted' | 'rejected') => {
         try {
             if (user && callId) {
-                const docRef = firestore().collection('call_sessions').doc(callId);
-
-                // Update current user's response
-                await docRef.update({
+                await firestore().collection('call_sessions').doc(callId).update({
                     [`responses.${user.uid}`]: status
                 });
-
-                // Fetch latest state to check if all responded
-                const latestDoc = await docRef.get();
-                if (latestDoc && latestDoc.exists()) {
-                    const data = latestDoc.data();
-                    if (data && data.responses) {
-                        const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
-                        if (allResponded) {
-                            console.log("All members responded. Ending session.");
-                            await docRef.update({ status: 'ended' });
-                        }
-                    }
-                }
             }
             if (status === 'rejected') stopRingingAndExit();
         } catch (e) {
