@@ -184,10 +184,10 @@ app.post('/trigger-call', async (req, res) => {
                 priority: 'high' as const,
                 ttl: 0,
                 notification: {
-                    channelId: 'rally-ring-v5',
+                    channelId: 'rally-ring-v7',
                     priority: 'high' as const,
                     visibility: 'public' as const,
-                    sound: 'default',
+                    sound: 'ringtone',
                 }
             }
         };

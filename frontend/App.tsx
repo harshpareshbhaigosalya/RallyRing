@@ -3,6 +3,7 @@ import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import messaging from '@react-native-firebase/messaging';
+import firestore from '@react-native-firebase/firestore';
 import notifee, { EventType } from '@notifee/react-native';
 import { onMessageReceived } from './src/utils/notificationHandler';
 import { navigate } from './src/navigation/navigationUtils';
@@ -45,12 +46,29 @@ const App = () => {
       }
     });
 
-    // 3. Handle notification interaction (Accept/Reject from background)
-    const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
-      if (type === EventType.ACTION_PRESS && (detail.pressAction?.id === 'accept' || detail.pressAction?.id === 'default')) {
+    // 3. Handle notification interaction (Accept/Reject from foreground)
+    const unsubscribeNotifee = notifee.onForegroundEvent(async ({ type, detail }) => {
+      if (type === EventType.ACTION_PRESS) {
         const { callId, groupName, callerName, reason } = detail.notification?.data || {};
-        if (callId) {
-          navigate('Ringing', { callId, groupName, callerName, reason: reason || '' });
+
+        if (detail.pressAction?.id === 'accept' || detail.pressAction?.id === 'default') {
+          if (callId && user?.uid) {
+            try {
+              await firestore().collection('call_sessions').doc(callId as string).update({
+                [`responses.${user.uid}`]: 'accepted'
+              });
+            } catch (e) { }
+            navigate('Ringing', { callId, groupName, callerName, reason: reason || '' });
+          }
+        } else if (detail.pressAction?.id === 'reject') {
+          if (callId && user?.uid) {
+            try {
+              await firestore().collection('call_sessions').doc(callId as string).update({
+                [`responses.${user.uid}`]: 'rejected'
+              });
+            } catch (e) { }
+            await notifee.stopForegroundService();
+          }
         }
       }
     });

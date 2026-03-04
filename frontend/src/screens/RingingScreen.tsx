@@ -41,7 +41,8 @@ const RingingScreen = ({ route, navigation }: any) => {
                     const allResponded = Object.values(data.responses).every((s: any) => s !== 'pending');
                     if (allResponded) {
                         try {
-                            await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
+                            const { stopCall } = require('../api/auth');
+                            await stopCall(callId);
                         } catch (e) { }
                     }
                 }
@@ -187,7 +188,8 @@ const RingingScreen = ({ route, navigation }: any) => {
                                 <TouchableOpacity
                                     style={styles.fullEndButton}
                                     onPress={async () => {
-                                        await firestore().collection('call_sessions').doc(callId).update({ status: 'ended' });
+                                        const { stopCall } = require('../api/auth');
+                                        await stopCall(callId);
                                     }}
                                 >
                                     <Text style={styles.fullEndButtonText}>END RALLY FOR ALL</Text>

@@ -19,12 +19,12 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const callId = data.callId as string;
     const reason = data.reason || '';
 
-    // Channel v6: Ultimate Priority Call Channel
+    // Channel v7: Critical Calling Channel with Custom Ringtone
     const channelId = await notifee.createChannel({
-        id: 'rally-ring-v6',
-        name: 'Squad Coordination Alerts',
+        id: 'rally-ring-v7',
+        name: 'Urgent Squadron Calls',
         importance: 5 as any,
-        sound: 'default',
+        sound: 'ringtone',
         vibration: true,
         vibrationPattern: [1000, 1000, 2000, 1000],
     });
@@ -39,6 +39,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             category: AndroidCategory.CALL,
             importance: 5, // MAX
             priority: 'high',
+            sound: 'ringtone',
             visibility: 1, // Public
             ongoing: true, // Prevents swiping away
             autoCancel: false,

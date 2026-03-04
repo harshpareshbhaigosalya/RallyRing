@@ -27,3 +27,8 @@ export const triggerCall = async (groupId: string, callerId: string, groupName: 
         throw error;
     }
 };
+export const stopCall = async (callId: string) => {
+    try {
+        await axios.post(`${API_URL}/stop-call`, { callId });
+    } catch (e) { }
+};
