@@ -1,24 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import { registerUser } from '../api/auth';
 import { useStore } from '../store/useStore';
 
 const RegisterScreen = ({ navigation }: any) => {
-    const [name, setName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [loading, setLoading] = useState(false);
     const { setUser } = useStore();
 
+    useEffect(() => {
+        const checkPermissions = async () => {
+            const authStatus = await messaging().requestPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            if (!enabled) {
+                Alert.alert(
+                    "Permissions Required",
+                    "Please enable notifications in your settings so you don't miss any calls!"
+                );
+            }
+        };
+        checkPermissions();
+    }, []);
+
     const handleRegister = async () => {
-        if (!name.trim()) return;
+        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+        if (!firstName.trim() || !lastName.trim()) {
+            Alert.alert("Missing Name", "Please enter both your first and last name.");
+            return;
+        }
         setLoading(true);
         try {
             const token = await messaging().getToken();
             console.log("FCM Token secured");
-            const data = await registerUser(name, token);
+            const data = await registerUser(fullName, token);
 
             if (data && data.uid) {
-                setUser({ uid: data.uid, name, fcmToken: token });
+                setUser({ uid: data.uid, name: fullName, fcmToken: token });
                 console.log("User registered with UID:", data.uid);
             } else {
                 throw new Error("Backend did not return a valid user ID.");
@@ -41,10 +62,18 @@ const RegisterScreen = ({ navigation }: any) => {
 
             <TextInput
                 style={styles.input}
-                placeholder="User Name"
+                placeholder="First Name"
                 placeholderTextColor="#666"
-                value={name}
-                onChangeText={setName}
+                value={firstName}
+                onChangeText={setFirstName}
+            />
+
+            <TextInput
+                style={styles.input}
+                placeholder="Last Name"
+                placeholderTextColor="#666"
+                value={lastName}
+                onChangeText={setLastName}
             />
 
             <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>

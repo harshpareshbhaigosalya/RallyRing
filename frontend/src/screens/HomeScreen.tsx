@@ -44,11 +44,11 @@ const HomeScreen = ({ navigation }: any) => {
             style={styles.card}
             onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
         >
-            <View>
-                <Text style={styles.groupName}>{item.name}</Text>
+            <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.memberCount}>{item.members.length} members</Text>
             </View>
-            <TouchableOpacity onPress={() => onShare(item.id)}>
+            <TouchableOpacity onPress={() => onShare(item.id)} style={styles.shareButton}>
                 <Text style={styles.shareText}>Share ID</Text>
             </TouchableOpacity>
         </TouchableOpacity>
@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
     groupName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     memberCount: { color: '#aaa', marginTop: 5 },
     shareText: { color: '#7C3AED', fontWeight: 'bold' },
+    shareButton: { padding: 10 },
     empty: { color: '#666', textAlign: 'center', marginTop: 100 },
     fabContainer: { position: 'absolute', bottom: 30, right: 20, flexDirection: 'row' },
     fab: { backgroundColor: '#7C3AED', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 15 }

@@ -9,21 +9,22 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         const callerName = data['callerName'] || 'Someone';
         const groupName = data['groupName'] || 'a group';
         const callId = data['callId'] || 'unknown';
+        const reason = data['reason'] || '';
 
         // 1. Create a high importance channel
         const channelId = await notifee.createChannel({
             id: 'incoming-calls',
             name: 'Incoming Calls',
             importance: AndroidImportance.HIGH,
-            sound: 'ringtone', // Must exist in android/app/src/main/res/raw/ringtone.mp3
+            sound: 'ringtone',
             vibration: true,
             vibrationPattern: [300, 500],
         });
 
         // 2. Display the notification with Full Screen Intent
         await notifee.displayNotification({
-            title: 'Incoming RallyRing Call',
-            body: `${callerName} is calling in ${groupName}`,
+            title: reason ? `Rally: ${reason}` : 'Incoming RallyRing Call',
+            body: `${callerName} is calling in ${groupName}${reason ? `\nReason: ${reason}` : ''}`,
             android: {
                 channelId,
                 category: AndroidCategory.CALL,

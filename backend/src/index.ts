@@ -76,7 +76,7 @@ app.post('/register', async (req, res) => {
  */
 app.post('/trigger-call', async (req, res) => {
     try {
-        const { groupId, callerId, groupName, purposeType } = req.body;
+        const { groupId, callerId, groupName, purposeType, targetUids, reason } = req.body;
 
         // 1. Verify group and caller membership
         const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -90,8 +90,19 @@ app.post('/trigger-call', async (req, res) => {
         // 2. Create Call Session
         const callId = `call_${Date.now()}`;
         const responses: any = {};
+
+        // Members to be notified
+        const actualTargets = targetUids && targetUids.length > 0
+            ? targetUids.filter((id: string) => id !== callerId)
+            : groupData.members.filter((id: string) => id !== callerId);
+
+        // All members in session responses
         groupData.members.forEach((mId: string) => {
-            if (mId !== callerId) responses[mId] = 'pending';
+            if (mId === callerId) {
+                responses[mId] = 'accepted'; // Caller is already in
+            } else if (actualTargets.includes(mId)) {
+                responses[mId] = 'pending';
+            }
         });
 
         await db.collection('call_sessions').doc(callId).set({
@@ -99,18 +110,20 @@ app.post('/trigger-call', async (req, res) => {
             groupId,
             callerId,
             groupName,
-            purposeType,
+            purposeType: purposeType || 'Rally',
+            reason: reason || '',
             status: 'ringing',
             responses,
+            targetUids: actualTargets,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // 3. Get FCM Tokens of all members except caller
-        const memberDocs = await db.collection('users').where('uid', 'in', groupData.members).get();
+        // 3. Get FCM Tokens of targeted members
+        const memberDocs = await db.collection('users').where('uid', 'in', actualTargets).get();
         const tokens: string[] = [];
         memberDocs.forEach(doc => {
             const data = doc.data();
-            if (data.uid !== callerId && data.fcmToken) {
+            if (data.fcmToken) {
                 tokens.push(data.fcmToken);
             }
         });
@@ -141,6 +154,7 @@ app.post('/trigger-call', async (req, res) => {
                 groupName,
                 callerName,
                 purposeType: purposeType || 'Rally',
+                reason: reason || '',
             },
             tokens: tokens,
             android: {
