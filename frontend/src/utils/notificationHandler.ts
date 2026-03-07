@@ -33,7 +33,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     // ─── Create/ensure the call notification channel exists ──────────────────
     // Channel id must match what we use in the notification AND the FCM message
     const channelId = await notifee.createChannel({
-        id: 'rally-ring-v10',
+        id: 'rally-ring-v11',
         name: 'RallyRing Incoming Calls',
         importance: AndroidImportance.HIGH,
         sound: 'ringtone',           // references: android/app/src/main/res/raw/ringtone.mp3
@@ -45,48 +45,69 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     });
 
     // ─── Display the full-screen / heads-up call notification ────────────────
-    await notifee.displayNotification({
-        id: callId,
-        title: `📞 RALLY: ${callerName}`,
-        body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
-        data: { ...data },
-        android: {
-            channelId,
-            category: AndroidCategory.CALL,
-            importance: AndroidImportance.HIGH,
-            visibility: AndroidVisibility.PUBLIC,
-            sound: 'ringtone',
-            ongoing: true,           // Cannot be dismissed by swipe
-            autoCancel: false,
-            loopSound: true,         // Loop the ringtone until cancelled
-            // Full-screen intent — shows call UI over lockscreen / other apps
-            fullScreenIntent: {
-                id: 'default',
-            },
-            pressAction: {
-                id: 'default',
-                launchActivity: 'default',
-            },
-            actions: [
-                {
-                    title: '✅ ACCEPT',
-                    pressAction: {
-                        id: 'accept',
-                        launchActivity: 'default',  // Opens the app
-                    },
+    try {
+        await notifee.displayNotification({
+            id: callId,
+            title: `📞 RALLY: ${callerName}`,
+            body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
+            data: { ...data },
+            android: {
+                channelId,
+                category: AndroidCategory.CALL,
+                importance: AndroidImportance.HIGH,
+                visibility: AndroidVisibility.PUBLIC,
+                sound: 'ringtone',
+                ongoing: true,           // Cannot be dismissed by swipe
+                autoCancel: false,
+                loopSound: true,         // Loop the ringtone until cancelled
+                // Full-screen intent — shows call UI over lockscreen / other apps
+                fullScreenIntent: {
+                    id: 'default',
+                    launchActivity: 'default',
                 },
-                {
-                    title: '❌ REJECT',
-                    pressAction: {
-                        id: 'reject',
-                        // No launchActivity → handled in background without opening app
-                    },
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
                 },
-            ],
-            // asForegroundService keeps the ringtone alive when app is in background/killed
-            asForegroundService: true,
-            color: '#7C3AED',
-            colorized: true,
-        } as any,
-    });
+                actions: [
+                    {
+                        title: '✅ ACCEPT',
+                        pressAction: {
+                            id: 'accept',
+                            launchActivity: 'default',  // Opens the app
+                        },
+                    },
+                    {
+                        title: '❌ REJECT',
+                        pressAction: {
+                            id: 'reject',
+                            // No launchActivity → handled in background without opening app
+                        },
+                    },
+                ],
+                // asForegroundService keeps the ringtone alive when app is in background/killed
+                asForegroundService: true,
+                color: '#7C3AED',
+                colorized: true,
+            } as any,
+        });
+    } catch (e) {
+        console.error('Initial Notifee full screen failed:', e);
+        // Fallback without foreground service / loopsound if Android 12+ restricts it
+        await notifee.displayNotification({
+            id: callId,
+            title: `📞 RALLY: ${callerName}`,
+            body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
+            data: { ...data },
+            android: {
+                channelId,
+                importance: AndroidImportance.HIGH,
+                sound: 'ringtone',
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
+            }
+        });
+    }
 }
