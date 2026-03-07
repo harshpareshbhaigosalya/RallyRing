@@ -134,6 +134,9 @@ const RegisterScreen = ({ navigation }: any) => {
                             <TouchableOpacity style={[styles.primeButton, { backgroundColor: '#FFC107' }]} onPress={requestBatteryExemption} disabled={loading}>
                                 {loading ? <ActivityIndicator color="#000" /> : <Text style={[styles.primeButtonText, { color: '#000' }]}>Fix Battery Settings</Text>}
                             </TouchableOpacity>
+                            <TouchableOpacity style={styles.skipButton} onPress={() => setPermissionStage(2)}>
+                                <Text style={styles.skipButtonText}>Skip for now</Text>
+                            </TouchableOpacity>
                         </>
                     )}
 
@@ -148,6 +151,9 @@ const RegisterScreen = ({ navigation }: any) => {
                             </Text>
                             <TouchableOpacity style={[styles.primeButton, { backgroundColor: '#2196F3' }]} onPress={requestOverlayPermission} disabled={loading}>
                                 <Text style={styles.primeButtonText}>Enable Overlay</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.skipButton} onPress={() => setShowPermissionWall(false)}>
+                                <Text style={styles.skipButtonText}>Skip for now</Text>
                             </TouchableOpacity>
                         </>
                     )}
@@ -211,7 +217,9 @@ const styles = StyleSheet.create({
     form: { width: '100%' },
     input: { backgroundColor: '#111', color: '#fff', padding: 20, borderRadius: 20, fontSize: 18, marginBottom: 15, borderWidth: 1, borderColor: '#222' },
     button: { backgroundColor: '#7C3AED', padding: 20, borderRadius: 20, alignItems: 'center' },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
+    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    skipButton: { marginTop: 15, padding: 10, alignItems: 'center' },
+    skipButtonText: { color: '#666', fontSize: 16, fontWeight: 'bold' }
 });
 
 export default RegisterScreen;
