@@ -3,6 +3,7 @@ import notifee, {
     AndroidImportance,
     AndroidCategory,
     AndroidVisibility,
+    AndroidForegroundServiceType
 } from '@notifee/react-native';
 
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
@@ -88,6 +89,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 ],
                 // asForegroundService keeps the ringtone alive when app is in background/killed
                 asForegroundService: true,
+                foregroundServiceTypes: [AndroidForegroundServiceType.MEDIA_PLAYBACK],
                 color: '#7C3AED',
                 colorized: true,
             } as any,
