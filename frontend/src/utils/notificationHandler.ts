@@ -29,10 +29,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const reason = (data.reason as string) || '';
 
     // ─── Create/ensure the call notification channel exists ──────────────────
-    let channelId = 'rally-ring-v13';
+    let channelId = 'rally-ring-v15';
     try {
         channelId = await notifee.createChannel({
-            id: 'rally-ring-v13',
+            id: 'rally-ring-v15',
             name: 'RallyRing Incoming Calls',
             importance: AndroidImportance.HIGH,
             sound: 'ringtone',
@@ -64,20 +64,20 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 autoCancel: false,
                 loopSound: true,         // Loop the ringtone until cancelled
                 // Full-screen intent — shows call UI over lockscreen / other apps
-                fullScreenIntent: {
+                fullScreenAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 pressAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 actions: [
                     {
                         title: '✅ ACCEPT',
                         pressAction: {
                             id: 'accept',
-                            launchActivity: 'default',  // Opens the app
+                            launchActivity: 'com.rallyring.MainActivity',  // Opens the app
                         },
                     },
                     {
@@ -89,7 +89,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 ],
                 // asForegroundService keeps the ringtone alive when app is in background/killed
                 asForegroundService: true,
-                foregroundServiceTypes: [AndroidForegroundServiceType.MEDIA_PLAYBACK],
+                foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK],
                 color: '#7C3AED',
                 colorized: true,
             } as any,
@@ -110,7 +110,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     sound: 'ringtone',
                     pressAction: {
                         id: 'default',
-                        launchActivity: 'default',
+                        launchActivity: 'com.rallyring.MainActivity',
                     },
                 }
             });
