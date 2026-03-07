@@ -166,10 +166,6 @@ app.post('/trigger-call', async (req, res) => {
         }
 
         const message = {
-            notification: {
-                title: `📞 RALLY: ${callerName}`,
-                body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -183,12 +179,6 @@ app.post('/trigger-call', async (req, res) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
-                notification: {
-                    channelId: 'rally-ring-v7',
-                    priority: 'high' as const,
-                    visibility: 'public' as const,
-                    sound: 'ringtone',
-                }
             }
         };
 
