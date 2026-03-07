@@ -237,6 +237,64 @@ app.post('/stop-call', async (req, res) => {
     }
 });
 
+/**
+ * AI Tester (Manual endpoint for isolated testing)
+ */
+app.post('/test-call', async (req, res) => {
+    try {
+        const { targetUid } = req.body;
+
+        const targetDoc = await db.collection('users').doc(targetUid).get();
+        if (!targetDoc.exists) return res.status(404).send({ error: "User not found" });
+
+        const fcmToken = targetDoc.data()?.fcmToken;
+        if (!fcmToken) return res.status(400).send({ error: "User has no FCM token" });
+
+        const callId = `test_call_${Date.now()}`;
+
+        // Setup Call Session so the frontend screen correctly mounts
+        await db.collection('call_sessions').doc(callId).set({
+            callId,
+            groupId: 'test_group',
+            callerId: 'system_test',
+            groupName: 'Rally Testing Room',
+            purposeType: 'Rally',
+            reason: 'Testing the ringing functionality!',
+            status: 'ringing',
+            responses: {
+                [targetUid]: 'pending',
+                system_test: 'accepted'
+            },
+            targetUids: [targetUid],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            timeoutAt: Date.now() + 600000
+        });
+
+        const message = {
+            data: {
+                type: 'INCOMING_CALL',
+                callId,
+                groupId: 'test_group',
+                groupName: 'Rally Testing Room',
+                callerName: 'Auto AI Tester',
+                purposeType: 'Rally',
+                reason: 'Testing the ringing functionality!',
+            },
+            token: fcmToken,
+            android: {
+                priority: 'high' as const,
+                ttl: 0,
+            }
+        };
+
+        const response = await fcm.send(message);
+        res.status(200).send({ success: true, callId, response });
+    } catch (error: any) {
+        console.error("Test call error:", error);
+        res.status(500).send({ error: error.message });
+    }
+});
+
 app.post('/update-token', async (req, res) => {
     try {
         const { uid, fcmToken } = req.body;
