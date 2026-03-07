@@ -33,7 +33,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     // ─── Create/ensure the call notification channel exists ──────────────────
     // Channel id must match what we use in the notification AND the FCM message
     const channelId = await notifee.createChannel({
-        id: 'rally-ring-v11',
+        id: 'rally-ring-v12',
         name: 'RallyRing Incoming Calls',
         importance: AndroidImportance.HIGH,
         sound: 'ringtone',           // references: android/app/src/main/res/raw/ringtone.mp3
@@ -63,18 +63,18 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // Full-screen intent — shows call UI over lockscreen / other apps
                 fullScreenIntent: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 pressAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 actions: [
                     {
                         title: '✅ ACCEPT',
                         pressAction: {
                             id: 'accept',
-                            launchActivity: 'default',  // Opens the app
+                            launchActivity: 'com.rallyring.MainActivity',  // Opens the app
                         },
                     },
                     {
@@ -105,7 +105,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 sound: 'ringtone',
                 pressAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
             }
         });
