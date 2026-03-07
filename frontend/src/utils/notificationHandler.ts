@@ -29,10 +29,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const reason = (data.reason as string) || '';
 
     // ─── Create/ensure the call notification channel exists ──────────────────
-    let channelId = 'rally-ring-v15';
+    let channelId = 'rally-ring-v16';
     try {
         channelId = await notifee.createChannel({
-            id: 'rally-ring-v15',
+            id: 'rally-ring-v16',
             name: 'RallyRing Incoming Calls',
             importance: AndroidImportance.HIGH,
             sound: 'ringtone',
@@ -87,9 +87,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                         },
                     },
                 ],
-                // asForegroundService keeps the ringtone alive when app is in background/killed
-                asForegroundService: true,
-                foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK],
                 color: '#7C3AED',
                 colorized: true,
             } as any,

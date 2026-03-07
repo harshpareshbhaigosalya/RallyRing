@@ -77,11 +77,5 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     }
 });
 
-// ─── 3. Notifee Foreground Service ────────────────────────────────────────────
-notifee.registerForegroundService(function (notification) {
-    return new Promise(function () {
-        // Stays alive until notifee.stopForegroundService() is called
-    });
-});
 
 AppRegistry.registerComponent(appName, () => App);

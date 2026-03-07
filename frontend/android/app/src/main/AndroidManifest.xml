@@ -7,7 +7,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -37,12 +36,6 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
-
-      <!-- Notifee: Required for foreground service (ringtone looping while app is in BG/killed) -->
-      <service
-        android:name="io.invertase.notifee.NotifeeApiModule$NotifeeService"
-        android:exported="false"
-        android:foregroundServiceType="mediaPlayback" />
 
       <!-- Notifee: Boot receiver to restore any missed notifications -->
       <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver"
