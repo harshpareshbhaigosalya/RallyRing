@@ -13,11 +13,8 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     if (data.type === 'CANCEL_CALL') {
         const cId = data.callId as string;
         try {
-            // Cancel the specific call notification
             await notifee.cancelNotification(cId);
-            // Also cancel any notification (cover all IDs)
             await notifee.cancelAllNotifications();
-            // Stop the foreground service (kills the ringtone loop)
             await notifee.stopForegroundService();
         } catch (e) { }
         return;
@@ -31,18 +28,22 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     const reason = (data.reason as string) || '';
 
     // ─── Create/ensure the call notification channel exists ──────────────────
-    // Channel id must match what we use in the notification AND the FCM message
-    const channelId = await notifee.createChannel({
-        id: 'rally-ring-v12',
-        name: 'RallyRing Incoming Calls',
-        importance: AndroidImportance.HIGH,
-        sound: 'ringtone',           // references: android/app/src/main/res/raw/ringtone.mp3
-        vibration: true,
-        vibrationPattern: [0, 500, 500, 500],
-        lights: true,
-        lightColor: '#7C3AED',
-        bypassDnd: true,
-    });
+    let channelId = 'rally-ring-v13';
+    try {
+        channelId = await notifee.createChannel({
+            id: 'rally-ring-v13',
+            name: 'RallyRing Incoming Calls',
+            importance: AndroidImportance.HIGH,
+            sound: 'ringtone',
+            vibration: true,
+            vibrationPattern: [0, 500, 500, 500],
+            lights: true,
+            lightColor: '#7C3AED',
+            bypassDnd: true,
+        });
+    } catch (e) {
+        console.log('Channel creation error', e);
+    }
 
     // ─── Display the full-screen / heads-up call notification ────────────────
     try {
@@ -53,6 +54,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             data: { ...data },
             android: {
                 channelId,
+                smallIcon: 'ic_launcher', // Mandatory icon or it crashes
                 category: AndroidCategory.CALL,
                 importance: AndroidImportance.HIGH,
                 visibility: AndroidVisibility.PUBLIC,
@@ -63,25 +65,24 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // Full-screen intent — shows call UI over lockscreen / other apps
                 fullScreenIntent: {
                     id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
+                    launchActivity: 'default',
                 },
                 pressAction: {
                     id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
+                    launchActivity: 'default',
                 },
                 actions: [
                     {
                         title: '✅ ACCEPT',
                         pressAction: {
                             id: 'accept',
-                            launchActivity: 'com.rallyring.MainActivity',  // Opens the app
+                            launchActivity: 'default',  // Opens the app
                         },
                     },
                     {
                         title: '❌ REJECT',
                         pressAction: {
                             id: 'reject',
-                            // No launchActivity → handled in background without opening app
                         },
                     },
                 ],
@@ -93,21 +94,26 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         });
     } catch (e) {
         console.error('Initial Notifee full screen failed:', e);
-        // Fallback without foreground service / loopsound if Android 12+ restricts it
-        await notifee.displayNotification({
-            id: callId,
-            title: `📞 RALLY: ${callerName}`,
-            body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
-            data: { ...data },
-            android: {
-                channelId,
-                importance: AndroidImportance.HIGH,
-                sound: 'ringtone',
-                pressAction: {
-                    id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
-                },
-            }
-        });
+        // Fallback without foreground service / loopsound / fullscreen if Android restricts it
+        try {
+            await notifee.displayNotification({
+                id: callId,
+                title: `📞 RALLY: ${callerName}`,
+                body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
+                data: { ...data },
+                android: {
+                    channelId,
+                    smallIcon: 'ic_launcher',
+                    importance: AndroidImportance.HIGH,
+                    sound: 'ringtone',
+                    pressAction: {
+                        id: 'default',
+                        launchActivity: 'default',
+                    },
+                }
+            });
+        } catch (e2) {
+            console.error('Fallback notification failed', e2);
+        }
     }
 }
