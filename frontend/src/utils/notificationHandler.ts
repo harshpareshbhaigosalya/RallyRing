@@ -77,21 +77,13 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                        pressAction: {
-                            id: 'accept',
-                            launchActivity: 'com.rallyring.MainActivity',
-                        },
+                        pressAction: { id: 'accept', launchActivity: 'com.rallyring.MainActivity' },
                     },
-                    {
-                        title: '❌ DECLINE',
-                        pressAction: {
-                            id: 'reject',
-                        },
-                    },
+                    { title: '❌ DECLINE', pressAction: { id: 'reject' } },
                 ],
                 color: isUrgent ? '#ef4444' : '#7C3AED',
                 colorized: true,
-                fullScreen: true,
+                looping: true,
             } as any,
         });
     } catch (e) {

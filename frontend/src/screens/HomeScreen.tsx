@@ -6,7 +6,7 @@ import {
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
 import { useStore } from '../store/useStore';
-import { Plus, Users, Share2, ChevronRight, LogOut } from 'lucide-react-native';
+import { Plus, Users, Share2, ChevronRight, LogOut, Phone } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const HomeScreen = ({ navigation }: any) => {
@@ -95,6 +95,27 @@ const HomeScreen = ({ navigation }: any) => {
                             <LogOut color="#666" size={20} />
                         </TouchableOpacity>
                     </View>
+
+                    {recentHistory.find(h => h.status === 'ringing') && (
+                        <TouchableOpacity 
+                            style={styles.activeCallBanner}
+                            onPress={() => {
+                                const h = recentHistory.find(h => h.status === 'ringing');
+                                navigation.navigate('Ringing', {
+                                    callId: h.callId,
+                                    groupName: h.groupName,
+                                    callerName: 'Someone',
+                                    reason: h.reason,
+                                    priority: h.priority
+                                });
+                            }}
+                        >
+                            <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.bannerGradient}>
+                                <Phone size={16} color="#fff" strokeWidth={3} />
+                                <Text style={styles.bannerText}>JOIN ONGOING RALLY</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
 
                     <View style={styles.statsContainer}>
                         <View style={styles.statBox}>
@@ -233,6 +254,10 @@ const styles = StyleSheet.create({
     historyStatusDone: { color: '#444', fontSize: 9, fontWeight: '800' },
     historyStatusActive: { color: '#ef4444', fontSize: 9, fontWeight: '900' },
     spacer: { height: 30 },
+
+    activeCallBanner: { marginTop: 20, borderRadius: 20, overflow: 'hidden', elevation: 8, shadowColor: '#ef4444', shadowRadius: 10, shadowOpacity: 0.5 },
+    bannerGradient: { padding: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    bannerText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
 });
 
 export default HomeScreen;

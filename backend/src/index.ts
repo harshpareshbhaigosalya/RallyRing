@@ -78,6 +78,16 @@ app.post('/trigger-call', async (req, res) => {
         const groupDoc = await db.collection('groups').doc(groupId).get();
         if (!groupDoc.exists) return res.status(404).send({ error: "Group not found" });
 
+        // -- Check if a call is already active for this group --
+        const activeSnap = await db.collection('call_sessions')
+            .where('groupId', '==', groupId)
+            .where('status', '==', 'ringing')
+            .limit(1)
+            .get();
+        if (!activeSnap.empty) {
+            return res.status(409).send({ error: "A rally is already active in this squad" });
+        }
+
         const groupData = groupDoc.data();
         if (callerId !== 'SYSTEM' && !groupData?.members.includes(callerId)) {
             return res.status(403).send({ error: "You are not a member of this group" });
@@ -85,20 +95,17 @@ app.post('/trigger-call', async (req, res) => {
 
         // 2. Create Call Session
         const callId = `call_${Date.now()}`;
-        const responses: any = {};
-
+        
         // Members to be notified
-        const actualTargets = targetUids && targetUids.length > 0
-            ? targetUids.filter((id: string) => id !== callerId)
-            : groupData.members.filter((id: string) => id !== callerId);
+        const actualTargets = targetUids && targetUids.length > 0 
+            ? targetUids.filter((id: string) => id !== callerId) // Filter out caller from explicit targets
+            : groupData.members.filter((id: string) => id !== callerId); // Filter out caller from all members
 
-        // All members in session responses
-        groupData.members.forEach((mId: string) => {
-            if (mId === callerId) {
-                responses[mId] = 'accepted'; // Caller is already in
-            } else if (actualTargets.includes(mId)) {
-                responses[mId] = 'pending';
-            }
+        const responses: any = {
+            [callerId]: 'accepted' // Caller is already in
+        };
+        actualTargets.forEach((uid: string) => {
+            responses[uid] = 'pending';
         });
 
         await db.collection('call_sessions').doc(callId).set({
@@ -164,6 +171,8 @@ app.post('/trigger-call', async (req, res) => {
             callerName = (callerDocSnapshot.data() as any).name || "Someone";
         }
 
+        const isUrgent = priority === 'urgent';
+
         const message = {
             data: {
                 type: 'INCOMING_CALL',
@@ -174,6 +183,9 @@ app.post('/trigger-call', async (req, res) => {
                 purposeType: purposeType || 'Rally',
                 reason: reason || '',
                 priority: priority || 'casual',
+                color: isUrgent ? '#ef4444' : '#7C3AED',
+                colorized: 'true', // FCM data values must be strings
+                looping: 'true', // FCM data values must be strings
             },
             tokens: tokens,
             android: {
