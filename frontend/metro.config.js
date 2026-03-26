@@ -8,20 +8,19 @@ const path = require('path');
  */
 const defaultConfig = getDefaultConfig(__dirname);
 
+const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '..');
+
 const config = {
     // Explicitly set the project root to the frontend directory
-    projectRoot: __dirname,
-    // Watch only the frontend folder (ignore root monorepo node_modules)
-    watchFolders: [__dirname],
+    projectRoot: projectRoot,
+    // Watch both frontend and monorepo root node_modules
+    watchFolders: [workspaceRoot],
     resolver: {
-        // Ensure our own node_modules is always first
+        // Ensure we check both local and monorepo node_modules
         nodeModulesPaths: [
-            path.resolve(__dirname, 'node_modules'),
-        ],
-        // Block packages from being resolved from monorepo root
-        blockList: [
-            // Prevent traversal into backend
-            new RegExp(`${path.resolve(__dirname, '..', 'backend').replace(/\\/g, '\\\\')}.*`),
+            path.resolve(projectRoot, 'node_modules'),
+            path.resolve(workspaceRoot, 'node_modules'),
         ],
     },
 };
