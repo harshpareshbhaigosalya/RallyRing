@@ -16,9 +16,16 @@ const App = () => {
   const initialNotifHandled = useRef(false);
 
   useEffect(() => {
-    // ── 1. FCM Token registration ──────────────────────────────────────────
-    const setupMessaging = async () => {
+    // ── 1. Permission and Token registration ───────────────────────────
+    const setupApp = async () => {
+      // FCM Permissions
       const authStatus = await messaging().requestPermission();
+      
+      // Notifee Permissions (Local notifications, Android 13+)
+      try {
+        await notifee.requestPermission();
+      } catch (e) { }
+
       if (authStatus >= 1 && user?.uid) {
         try {
           const token = await messaging().getToken();
@@ -26,7 +33,7 @@ const App = () => {
         } catch (e) { }
       }
     };
-    setupMessaging();
+    setupApp();
 
     // Refresh token whenever it rotates
     const unsubscribeTokenRefresh = messaging().onTokenRefresh(token => {
@@ -44,11 +51,12 @@ const App = () => {
         const { callId, groupName, callerName, reason } = remoteMessage.data;
         // Short delay to let navigation mount first
         setTimeout(() => {
-          navigate('Ringing', {
+        navigate('Ringing', {
             callId,
             groupName,
             callerName,
             reason: (reason as string) || '',
+            priority: (remoteMessage.data?.priority as string) || 'casual',
           });
         }, 300);
       }
@@ -80,6 +88,7 @@ const App = () => {
             groupName: notifData.groupName,
             callerName: notifData.callerName,
             reason: (notifData.reason as string) || '',
+            priority: (notifData.priority as string) || 'casual',
           });
         } else if (detail.pressAction?.id === 'reject') {
           try {
@@ -88,7 +97,6 @@ const App = () => {
               .doc(callId)
               .update({ [`responses.${user.uid}`]: 'rejected' });
             await notifee.cancelNotification(callId);
-            await notifee.stopForegroundService();
           } catch (e) { }
         }
       }
@@ -109,6 +117,7 @@ const App = () => {
           groupName,
           callerName,
           reason: (reason as string) || '',
+          priority: (remoteMessage.data?.priority as string) || 'casual',
         });
       }
     });
@@ -117,50 +126,46 @@ const App = () => {
     const checkInitialNotification = async () => {
       if (initialNotifHandled.current) return;
 
-      // Check Notifee initial notification (notification action pressed)
+      const userUid = user?.uid; // Capture uid for async block
+
+      // Check Notifee initial notification
       const initial = await notifee.getInitialNotification();
       if (initial?.notification?.data?.callId) {
         initialNotifHandled.current = true;
-        const { callId, groupName, callerName, reason } = initial.notification.data;
+        const { callId, groupName, callerName, reason, priority = 'casual' } = initial.notification.data;
 
-        // If accept was pressed, update Firestore
-        if (initial.pressAction?.id === 'accept' && user?.uid) {
+        if (initial.pressAction?.id === 'accept' && userUid) {
           try {
-            await firestore()
-              .collection('call_sessions')
-              .doc(callId as string)
-              .update({ [`responses.${user.uid}`]: 'accepted' });
+            await firestore().collection('call_sessions').doc(callId as string)
+              .update({ [`responses.${userUid}`]: 'accepted' });
           } catch (e) { }
         }
 
-        // Poll until navigator is ready (it takes a moment after app cold start)
         let attempts = 0;
         const interval = setInterval(() => {
           attempts++;
           const success = navigate('Ringing', {
-            callId,
-            groupName,
-            callerName,
+            callId, groupName, callerName,
             reason: (reason as string) || '',
+            priority: (priority as string) || 'casual',
           });
           if (success || attempts > 50) clearInterval(interval);
         }, 100);
         return;
       }
 
-      // Also check FCM initial notification (app opened from FCM itself)
+      // Check FCM initial notification
       const fcmInitial = await messaging().getInitialNotification();
       if (fcmInitial?.data?.type === 'INCOMING_CALL' && fcmInitial?.data?.callId) {
         initialNotifHandled.current = true;
-        const { callId, groupName, callerName, reason } = fcmInitial.data;
+        const { callId, groupName, callerName, reason, priority = 'casual' } = fcmInitial.data;
         let attempts = 0;
         const interval = setInterval(() => {
           attempts++;
           const success = navigate('Ringing', {
-            callId,
-            groupName,
-            callerName,
+            callId, groupName, callerName,
             reason: (reason as string) || '',
+            priority: (priority as string) || 'casual',
           });
           if (success || attempts > 50) clearInterval(interval);
         }, 100);
@@ -174,6 +179,27 @@ const App = () => {
       unsubscribeForeground();
       unsubscribeNotifee();
     };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const updatePresence = async () => {
+      try {
+        await firestore().collection('users').doc(user.uid).update({
+          lastSeen: firestore.FieldValue.serverTimestamp(),
+          status: 'online'
+        });
+      } catch (e) { }
+    };
+
+    // Initial check-in
+    updatePresence();
+
+    // Heartbeat every 45s
+    const interval = setInterval(updatePresence, 45000);
+
+    return () => clearInterval(interval);
   }, [user?.uid]);
 
   return (

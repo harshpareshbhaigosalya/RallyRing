@@ -1,376 +1,291 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    Animated, ScrollView, Dimensions, Platform, BackHandler
+    Animated, ScrollView, Dimensions, Platform, BackHandler, Vibration, Modal
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import notifee from '@notifee/react-native';
 import { useStore } from '../store/useStore';
-import { Phone, PhoneOff } from 'lucide-react-native';
+import { Phone, PhoneOff, Users, Clock, CheckCircle2, XCircle, AlertTriangle, Send } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import Sound from 'react-native-sound';
 
-const { height } = Dimensions.get('window');
+Sound.setCategory('Playback');
+const { height, width } = Dimensions.get('window');
 
 const RingingScreen = ({ route, navigation }: any) => {
-    const { callId, groupName, callerName, reason } = route.params;
+    const { callId, groupName, callerName, reason, priority = 'casual' } = route.params;
     const { user } = useStore();
+    
     const [pulse] = useState(new Animated.Value(1));
     const [session, setSession] = useState<any>(null);
     const [memberNames, setMemberNames] = useState<Record<string, string>>({});
-    // Guard to prevent stopCall being called multiple times
+    const [memberStatus, setMemberStatus] = useState<Record<string, any>>({});
+    const [showQuickRes, setShowQuickRes] = useState(false);
+    
     const autoEndFired = useRef(false);
+    const soundRef = useRef<Sound | null>(null);
+    const isRinging = useRef(false);
 
-    // ── Prevent hardware back button from bypassing the call screen ──────────
-    useEffect(() => {
-        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-            // Block back button while call is pending for this user
-            const myStatus = session?.responses?.[user?.uid || ''];
-            if (myStatus === 'pending') return true; // Block
-            return false; // Allow
+    const myId = user?.uid || '';
+    const myStatus = session?.responses?.[myId];
+    const amCaller = session?.callerId === myId;
+    const isUrgent = priority === 'urgent' || session?.priority === 'urgent';
+
+    // ── Sound & Vibration ──────────────────────────────────────────────
+    const startRinging = () => {
+        if (isRinging.current || myStatus !== 'pending' || amCaller) return;
+
+        const ringtone = new Sound('ringtone', '', (error) => {
+            if (error) return;
+            ringtone.setNumberOfLoops(-1);
+            ringtone.setVolume(isUrgent ? 1.0 : 0.7);
+            ringtone.play();
+            isRinging.current = true;
         });
-        return () => backHandler.remove();
-    }, [session, user?.uid]);
+        soundRef.current = ringtone;
+        
+        const pattern = isUrgent ? [200, 200, 200, 200] : [500, 1000];
+        Vibration.vibrate(pattern, true);
+    };
 
-    // ── Pulsing animation ─────────────────────────────────────────────────
+    const stopSound = () => {
+        if (soundRef.current) {
+            try { soundRef.current.stop(); soundRef.current.release(); } catch (e) { }
+            soundRef.current = null;
+        }
+        Vibration.cancel();
+        isRinging.current = false;
+    };
+
     useEffect(() => {
-        const anim = Animated.loop(
+        if (session && myStatus === 'pending' && !amCaller) startRinging();
+        else stopSound();
+    }, [myStatus, session, amCaller]);
+
+    useEffect(() => {
+        Animated.loop(
             Animated.sequence([
-                Animated.timing(pulse, { toValue: 1.35, duration: 800, useNativeDriver: true }),
-                Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: isUrgent ? 1.6 : 1.3, duration: isUrgent ? 600 : 1200, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1, duration: isUrgent ? 600 : 1200, useNativeDriver: true }),
             ])
-        );
-        anim.start();
-        return () => anim.stop();
-    }, []);
+        ).start();
+        return () => stopSound();
+    }, [isUrgent]);
 
-    // ── Firestore real-time listener ──────────────────────────────────────
+    // ── Firestore Sync ──────────────────────────────────────────────────
     useEffect(() => {
-        const unsubscribe = firestore()
-            .collection('call_sessions')
-            .doc(callId)
-            .onSnapshot(async doc => {
-                if (!doc || !doc.exists) {
-                    // Call document gone – end for everyone
-                    await stopRinging();
-                    navigation.goBack();
-                    return;
+        const unsubscribe = firestore().collection('call_sessions').doc(callId).onSnapshot(async doc => {
+            if (!doc || !doc.exists || doc.data()?.status === 'ended') {
+                await stopRingingAndClear();
+                navigation.goBack();
+                return;
+            }
+            const data = doc.data();
+            setSession(data);
+
+            if (data?.responses && !autoEndFired.current) {
+                const allResponded = Object.values(data.responses).every(s => s !== 'pending');
+                if (allResponded) {
+                    autoEndFired.current = true;
+                    setTimeout(async () => {
+                        try { const { stopCall } = require('../api/auth'); await stopCall(callId); } catch (e) { }
+                    }, 2500);
                 }
+            }
 
-                const data = doc.data();
-
-                if (data?.status === 'ended') {
-                    await stopRinging();
-                    navigation.goBack();
-                    return;
-                }
-
-                setSession(data);
-
-                // ── Auto-end: if everyone responded, caller ends the call ──
-                if (data?.responses && data.status === 'ringing' && !autoEndFired.current) {
-                    const allResponded = Object.values(data.responses).every(
-                        (s: any) => s !== 'pending'
-                    );
-                    if (allResponded) {
-                        autoEndFired.current = true;
-                        try {
-                            const { stopCall } = require('../api/auth');
-                            await stopCall(callId);
-                        } catch (e) { }
-                    }
-                }
-
-                // ── Fetch member names lazily ──────────────────────────────
-                if (data?.responses) {
-                    const uids = Object.keys(data.responses);
-                    for (const uid of uids) {
-                        setMemberNames(prev => {
-                            if (prev[uid]) return prev; // Already fetched
-                            // Trigger async fetch
-                            firestore().collection('users').doc(uid).get()
-                                .then(uDoc => {
-                                    if (uDoc && uDoc.exists()) {
-                                        setMemberNames(p => ({ ...p, [uid]: uDoc.data()?.name || uid }));
-                                    }
-                                })
-                                .catch(() => { });
-                            return prev;
-                        });
-                    }
+            // Sync Member Names & Status
+            Object.keys(data?.responses || {}).forEach(uid => {
+                if (!memberNames[uid]) {
+                    firestore().collection('users').doc(uid).onSnapshot(uDoc => {
+                        if (uDoc.exists()) {
+                            const uData = uDoc.data();
+                            setMemberNames((p: any) => ({ ...p, [uid]: uData?.name || uid }));
+                            setMemberStatus((p: any) => ({ ...p, [uid]: uData }));
+                        }
+                    });
                 }
             });
-
+        });
         return () => unsubscribe();
     }, [callId]);
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-    const stopRinging = async () => {
+    const stopRingingAndClear = async () => {
+        stopSound();
         try {
             await notifee.cancelNotification(callId);
             await notifee.stopForegroundService();
         } catch (e) { }
     };
 
-    const handleResponse = async (status: 'accepted' | 'rejected') => {
+    const handleResponse = async (status: string) => {
         try {
-            // Stop notification immediately
-            await stopRinging();
-
+            await stopRingingAndClear();
             if (user?.uid && callId) {
-                await firestore()
-                    .collection('call_sessions')
-                    .doc(callId)
-                    .update({ [`responses.${user.uid}`]: status });
+                await firestore().collection('call_sessions').doc(callId).update({ [`responses.${user.uid}`]: status });
             }
-
-            if (status === 'rejected') {
+            if (!status.includes('accepted')) {
                 navigation.goBack();
             }
-            // If accepted → stay on screen and show live updates
-        } catch (e) {
-            console.error('Response update failed:', e);
-        }
+            setShowQuickRes(false);
+        } catch (e) { }
     };
 
-    const handleEndCallForAll = async () => {
-        try {
-            await stopRinging();
-            const { stopCall } = require('../api/auth');
-            await stopCall(callId);
-            // navigation will happen via onSnapshot listener (status === 'ended')
-        } catch (e) {
-            navigation.goBack();
-        }
+    const isOnline = (uid: string) => {
+        const uData = memberStatus[uid];
+        if (!uData || uData.status !== 'online' || !uData.lastSeen) return false;
+        const lastSeenMs = uData.lastSeen.toMillis ? uData.lastSeen.toMillis() : uData.lastSeen;
+        return (Date.now() - lastSeenMs) < 90000;
     };
 
-    const handleDismissView = async () => {
-        await stopRinging();
-        navigation.goBack();
-    };
-
-    // ── Categorise responses ──────────────────────────────────────────────
-    const sections = { accepted: [] as string[], pending: [] as string[], rejected: [] as string[] };
-    if (session?.responses) {
-        Object.entries(session.responses).forEach(([uid, s]: [string, any]) => {
-            if (s === 'accepted') sections.accepted.push(uid);
-            else if (s === 'rejected') sections.rejected.push(uid);
-            else sections.pending.push(uid);
-        });
-    }
-
-    const myStatus = session?.responses?.[user?.uid || ''];
-    const amCaller = session?.callerId === user?.uid;
+    const theme = isUrgent ? ['#450a0a', '#7f1d1d', '#991b1b'] : ['#0f172a', '#1e1b4b', '#020617'];
+    const quickOps = [
+        { label: "In 5 mins! 🏃", val: "accepted:5min" },
+        { label: "Busy, 15 min ⏳", val: "accepted:15min" },
+        { label: "On my way! 🚗", val: "accepted:way" },
+        { label: "Can't make it 🛑", val: "rejected" }
+    ];
 
     return (
         <View style={styles.container}>
-            <LinearGradient colors={['#12052e', '#1a0644', '#000']} style={styles.gradient}>
-
-                {/* ── Top Info ─────────────────────────────────────────── */}
-                <View style={styles.topSection}>
-                    <Text style={styles.groupLabel}>{(groupName || '').toUpperCase()}</Text>
-                    <Text style={styles.callerName}>{callerName}</Text>
-                    <Text style={styles.callingStatus}>
-                        {myStatus === 'pending' ? 'Incoming Rally Call...' :
-                            myStatus === 'accepted' ? '✅ You accepted' :
-                                myStatus === 'rejected' ? '❌ You declined' :
-                                    'Rally in progress'}
-                    </Text>
+            <LinearGradient colors={theme} style={styles.gradient}>
+                
+                <View style={styles.header}>
+                    <View style={[styles.priorityBadge, isUrgent && { backgroundColor: '#ef4444' }]}>
+                        {isUrgent ? <AlertTriangle size={12} color="#fff" /> : <Users size={12} color="#94a3b8" />}
+                        <Text style={styles.priorityText}>{priority.toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.callerTitle}>{callerName}</Text>
+                    <Text style={styles.groupSub}>from {groupName}</Text>
                 </View>
 
-                {/* ── Pulsing Avatar ──────────────────────────────────── */}
-                <View style={styles.avatarSection}>
-                    <Animated.View style={[styles.pulseOuter, { transform: [{ scale: pulse }] }]} />
-                    <Animated.View style={[styles.pulseInner, {
-                        transform: [{ scale: Animated.divide(pulse, new Animated.Value(1.15)) }]
-                    }]} />
-                    <View style={styles.avatarMain}>
-                        <Phone color="#fff" size={40} />
+                <View style={styles.visualContainer}>
+                    <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulse }], backgroundColor: isUrgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)' }]} />
+                    <View style={[styles.avatarGlow, isUrgent && { shadowColor: '#ef4444' }]}>
+                        <LinearGradient colors={isUrgent ? ['#ef4444', '#b91c1c'] : ['#6366f1', '#a855f7']} style={styles.avatarGradient}>
+                            <Phone color="#fff" size={42} strokeWidth={2.5} />
+                        </LinearGradient>
                     </View>
                 </View>
 
-                {/* ── Reason badge ─────────────────────────────────────── */}
-                {reason ? (
-                    <View style={styles.reasonContainer}>
-                        <View style={styles.reasonBadge}>
-                            <Text style={styles.reasonText}>"{reason}"</Text>
-                        </View>
-                    </View>
-                ) : <View style={{ height: 20 }} />}
-
-                {/* ── Live stats ──────────────────────────────────────── */}
-                <View style={styles.liveSummary}>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statCount, { color: '#4CAF50' }]}>{sections.accepted.length}</Text>
-                        <Text style={styles.statLabel}>ACCEPTED</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statCount, { color: '#FFC107' }]}>{sections.pending.length}</Text>
-                        <Text style={styles.statLabel}>PENDING</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statCount, { color: '#F44336' }]}>{sections.rejected.length}</Text>
-                        <Text style={styles.statLabel}>DECLINED</Text>
-                    </View>
+                <View style={[styles.reasonBox, isUrgent && { borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                    <Text style={[styles.reasonLabel, isUrgent && { color: '#f87171' }]}>RALLY SUBJECT</Text>
+                    <Text style={styles.reasonValue}>{reason || 'No specific reason'}</Text>
                 </View>
 
-                {/* ── Member list ─────────────────────────────────────── */}
-                <ScrollView style={styles.memberScroll} contentContainerStyle={styles.memberList}>
-                    {Object.entries(session?.responses || {}).map(([uid, status]: [string, any]) => (
-                        <View key={uid} style={styles.memberRow}>
-                            <Text style={styles.memberName} numberOfLines={1}>
-                                {uid === user?.uid ? 'You' : (memberNames[uid] || 'Loading...')}
-                                {uid === session?.callerId ? ' 📞' : ''}
-                            </Text>
-                            <View style={[
-                                styles.statusTag,
-                                status === 'accepted' ? styles.tagAccepted :
-                                    status === 'rejected' ? styles.tagRejected : styles.tagPending
-                            ]}>
-                                <Text style={styles.tagText}>
-                                    {status === 'accepted' ? '✅ ACCEPTED' :
-                                        status === 'rejected' ? '❌ DECLINED' : '⏳ RINGING'}
-                                </Text>
+                <View style={styles.listContainer}>
+                    <Text style={styles.listHeader}>SQUAD STATUS</Text>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        {Object.entries(session?.responses || {}).map(([uid, status]: [string, any]) => (
+                            <View key={uid} style={styles.memberItem}>
+                                <View style={styles.memberInfo}>
+                                    <View style={styles.avatarMini}>
+                                        <Text style={styles.avatarTxt}>{(memberNames[uid] || '?')[0]}</Text>
+                                        {isOnline(uid) && <View style={styles.onlineDot} />}
+                                    </View>
+                                    <Text style={styles.memberNameText} numberOfLines={1}>
+                                        {uid === user?.uid ? 'You' : (memberNames[uid] || '...')}
+                                    </Text>
+                                </View>
+                                <View style={[styles.pill, status.startsWith('accepted') ? styles.pillAccepted : status === 'rejected' ? styles.pillRejected : styles.pillPending]}>
+                                    <Text style={styles.pillText}>{status.split(':')[1]?.toUpperCase() || status.toUpperCase()}</Text>
+                                </View>
                             </View>
-                        </View>
-                    ))}
-                </ScrollView>
+                        ))}
+                    </ScrollView>
+                </View>
 
-                {/* ── Bottom action buttons ────────────────────────────── */}
-                <View style={styles.bottomActions}>
-                    {myStatus === 'pending' ? (
-                        // Show Accept / Reject only when this user hasn't responded yet
-                        <View style={styles.buttonRow}>
-                            <View style={styles.btnWrapper}>
-                                <TouchableOpacity
-                                    style={[styles.circleButton, styles.rejectBtn]}
-                                    onPress={() => handleResponse('rejected')}
-                                    activeOpacity={0.8}
-                                >
-                                    <PhoneOff color="white" size={32} />
+                <View style={styles.footer}>
+                    {myStatus === 'pending' && !amCaller ? (
+                        <View style={styles.controlsCol}>
+                             <View style={styles.callControls}>
+                                <TouchableOpacity style={[styles.actionBtn, styles.declineBtn]} onPress={() => handleResponse('rejected')}>
+                                    <PhoneOff color="#fff" size={28} />
                                 </TouchableOpacity>
-                                <Text style={styles.actionLabel}>Decline</Text>
-                            </View>
 
-                            <View style={styles.btnWrapper}>
-                                <TouchableOpacity
-                                    style={[styles.circleButton, styles.acceptBtn]}
-                                    onPress={() => handleResponse('accepted')}
-                                    activeOpacity={0.8}
-                                >
-                                    <Phone color="white" size={32} />
+                                <TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => handleResponse('accepted')}>
+                                    <Phone color="#fff" size={32} />
                                 </TouchableOpacity>
-                                <Text style={styles.actionLabel}>Accept</Text>
+
+                                <TouchableOpacity style={[styles.actionBtn, styles.quickBtn]} onPress={() => setShowQuickRes(true)}>
+                                    <Send color="#fff" size={24} />
+                                </TouchableOpacity>
                             </View>
+                            <Text style={styles.hintText}>Swipe up for quick replies</Text>
                         </View>
                     ) : (
-                        // Show END / DISMISS after response
-                        <View style={styles.actionFooter}>
-                            {amCaller ? (
-                                <TouchableOpacity
-                                    style={styles.fullEndButton}
-                                    onPress={handleEndCallForAll}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.fullEndButtonText}>⛔ END RALLY FOR ALL</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity
-                                    style={styles.closeButton}
-                                    onPress={handleDismissView}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.closeButtonText}>DISMISS VIEW</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        <TouchableOpacity style={styles.dismissBtn} onPress={() => navigation.goBack()}>
+                            <Text style={styles.dismissText}>{amCaller ? 'END RALLY' : 'DISMISS VIEW'}</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
-
             </LinearGradient>
+
+            <Modal visible={showQuickRes} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowQuickRes(false)} />
+                    <View style={styles.quickModal}>
+                        <View style={styles.modalHandle} />
+                        <Text style={styles.modalTitle}>Quick Response</Text>
+                        <View style={styles.quickGrid}>
+                            {quickOps.map((op, i) => (
+                                <TouchableOpacity key={i} style={styles.quickOpItem} onPress={() => handleResponse(op.val)}>
+                                    <Text style={styles.quickOpText}>{op.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
-    gradient: { flex: 1, paddingHorizontal: 24, paddingTop: Platform.OS === 'android' ? 40 : 60 },
-
-    topSection: { alignItems: 'center', marginTop: height * 0.04, marginBottom: 20 },
-    groupLabel: { color: '#9F6FFF', fontSize: 12, fontWeight: 'bold', letterSpacing: 4, marginBottom: 10 },
-    callerName: { color: '#fff', fontSize: 32, fontWeight: 'bold', textAlign: 'center' },
-    callingStatus: { color: '#aaa', fontSize: 15, marginTop: 8 },
-
-    avatarSection: { height: 160, justifyContent: 'center', alignItems: 'center', marginVertical: 10 },
-    pulseOuter: {
-        width: 140, height: 140, borderRadius: 70,
-        backgroundColor: 'rgba(124, 58, 237, 0.15)', position: 'absolute'
-    },
-    pulseInner: {
-        width: 115, height: 115, borderRadius: 57,
-        backgroundColor: 'rgba(124, 58, 237, 0.25)', position: 'absolute'
-    },
-    avatarMain: {
-        width: 90, height: 90, borderRadius: 45,
-        backgroundColor: '#7C3AED',
-        justifyContent: 'center', alignItems: 'center',
-        elevation: 20, shadowColor: '#7C3AED',
-        shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 20
-    },
-
-    reasonContainer: { alignItems: 'center', marginBottom: 10 },
-    reasonBadge: {
-        backgroundColor: '#1a1a2e', paddingHorizontal: 20, paddingVertical: 8,
-        borderRadius: 30, borderWidth: 1, borderColor: '#3a3a6e'
-    },
-    reasonText: { color: '#ddd', fontSize: 15, fontStyle: 'italic' },
-
-    liveSummary: {
-        flexDirection: 'row', justifyContent: 'space-around',
-        backgroundColor: '#111827', borderRadius: 20, padding: 16,
-        marginVertical: 16, borderWidth: 1, borderColor: '#1f2937'
-    },
-    statBox: { alignItems: 'center', flex: 1 },
-    statCount: { fontSize: 22, fontWeight: 'bold' },
-    statLabel: { color: '#6b7280', fontSize: 9, textTransform: 'uppercase', marginTop: 4, letterSpacing: 1 },
-    statDivider: { width: 1, backgroundColor: '#1f2937' },
-
-    memberScroll: { flex: 1 },
-    memberList: { paddingBottom: 12 },
-    memberRow: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        backgroundColor: '#111', padding: 14, borderRadius: 14, marginBottom: 8
-    },
-    memberName: { color: '#fff', fontSize: 14, flex: 1 },
-    statusTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    tagAccepted: { backgroundColor: 'rgba(76, 175, 80, 0.2)' },
-    tagRejected: { backgroundColor: 'rgba(244, 67, 54, 0.2)' },
-    tagPending: { backgroundColor: 'rgba(255, 193, 7, 0.2)' },
-    tagText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-
-    bottomActions: { paddingBottom: Platform.OS === 'ios' ? 40 : 24, paddingTop: 10 },
-    buttonRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
-    btnWrapper: { alignItems: 'center', gap: 12 },
-    circleButton: {
-        width: 80, height: 80, borderRadius: 40,
-        justifyContent: 'center', alignItems: 'center',
-        elevation: 12, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8
-    },
-    acceptBtn: { backgroundColor: '#22c55e', shadowColor: '#22c55e' },
-    rejectBtn: { backgroundColor: '#ef4444', shadowColor: '#ef4444' },
-    actionLabel: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
-
-    actionFooter: { width: '100%' },
-    fullEndButton: {
-        backgroundColor: '#ef4444', padding: 18, borderRadius: 18,
-        alignItems: 'center', elevation: 8
-    },
-    fullEndButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    closeButton: {
-        backgroundColor: '#1f2937', padding: 18, borderRadius: 18, alignItems: 'center'
-    },
-    closeButtonText: { color: '#9ca3af', fontWeight: 'bold', fontSize: 15 },
+    container: { flex: 1, backgroundColor: '#020617' },
+    gradient: { flex: 1, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 24 },
+    header: { alignItems: 'center', marginBottom: 20 },
+    priorityBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(99, 102, 241, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, marginBottom: 8 },
+    priorityText: { color: '#fff', fontSize: 10, fontWeight: '900', marginLeft: 6, letterSpacing: 1 },
+    callerTitle: { color: '#fff', fontSize: 32, fontWeight: '800' },
+    groupSub: { color: '#94a3b8', fontSize: 14, fontWeight: '500' },
+    visualContainer: { height: height * 0.2, justifyContent: 'center', alignItems: 'center' },
+    pulseCircle: { position: 'absolute', width: 200, height: 200, borderRadius: 100 },
+    avatarGlow: { width: 100, height: 100, borderRadius: 50, padding: 4, backgroundColor: 'rgba(255,255,255,0.1)', shadowRadius: 20, shadowOpacity: 0.8, elevation: 20 },
+    avatarGradient: { flex: 1, borderRadius: 46, justifyContent: 'center', alignItems: 'center' },
+    reasonBox: { backgroundColor: 'rgba(30, 41, 59, 0.5)', borderRadius: 20, padding: 20, marginVertical: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    reasonLabel: { color: '#6366f1', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
+    reasonValue: { color: '#f8fafc', fontSize: 16, fontWeight: '600' },
+    listContainer: { flex: 1 },
+    listHeader: { color: '#475569', fontSize: 10, fontWeight: '900', marginBottom: 10, letterSpacing: 1 },
+    memberItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(15,23,42,0.4)', padding: 12, borderRadius: 16, marginBottom: 8 },
+    memberInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    avatarMini: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1e293b', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    avatarTxt: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
+    onlineDot: { position: 'absolute', right: 0, bottom: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: '#1e293b' },
+    memberNameText: { color: '#cbd5e1', fontSize: 15, fontWeight: '600' },
+    pill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+    pillAccepted: { backgroundColor: 'rgba(34, 197, 94, 0.2)' },
+    pillRejected: { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
+    pillPending: { backgroundColor: 'rgba(234, 179, 8, 0.2)' },
+    pillText: { fontSize: 8, fontWeight: '900', color: '#fff' },
+    footer: { paddingBottom: 40, paddingTop: 10 },
+    controlsCol: { alignItems: 'center', gap: 15 },
+    callControls: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+    actionBtn: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', elevation: 10 },
+    acceptBtn: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#22c55e' },
+    declineBtn: { backgroundColor: '#ef4444' },
+    quickBtn: { backgroundColor: '#334155' },
+    hintText: { color: '#64748b', fontSize: 12, fontWeight: '500' },
+    dismissBtn: { backgroundColor: '#ef4444', padding: 20, borderRadius: 20, alignItems: 'center' },
+    dismissText: { color: '#fff', fontWeight: '800' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    quickModal: { backgroundColor: '#1e293b', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, paddingBottom: 50 },
+    modalHandle: { width: 40, height: 5, backgroundColor: '#334155', borderRadius: 3, alignSelf: 'center', marginBottom: 20 },
+    modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+    quickGrid: { gap: 12 },
+    quickOpItem: { backgroundColor: '#334155', padding: 18, borderRadius: 15, alignItems: 'center' },
+    quickOpText: { color: '#fff', fontSize: 16, fontWeight: '600' }
 });
 
 export default RingingScreen;

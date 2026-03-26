@@ -17,6 +17,9 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
     const [showCallModal, setShowCallModal] = useState(false);
     const [callReason, setCallReason] = useState('');
+    const [priority, setPriority] = useState<'casual' | 'priority' | 'urgent'>('casual');
+    const [scheduledAt, setScheduledAt] = useState<number | null>(null);
+    const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, lastSeen: any }>>({});
     const [history, setHistory] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
 
@@ -34,29 +37,29 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                     setSelectedMembers(data.members.filter((m: string) => m !== user?.uid));
                 }
 
-                data.members.forEach(async (mId: string) => {
-                    if (!memberData[mId]) {
-                        try {
-                            const mDoc = await firestore().collection('users').doc(mId).get();
-                            if (mDoc.exists()) {
-                                setMemberData(prev => ({ ...prev, [mId]: mDoc.data()?.name || mId }));
-                            }
-                        } catch (err) { }
-                    }
+                data.members.forEach((mId: string) => {
+                    // Listen to member info + presence
+                    firestore().collection('users').doc(mId).onSnapshot(uDoc => {
+                        if (uDoc.exists()) {
+                            const uData = uDoc.data();
+                            setMemberData((prev: Record<string, string>) => ({ ...prev, [mId]: uData?.name || mId }));
+                            setMemberStatus((prev: Record<string, { status: string, lastSeen: any }>) => ({ 
+                                ...prev, 
+                                [mId]: { status: uData?.status || 'offline', lastSeen: uData?.lastSeen } 
+                            }));
+                        }
+                    });
                 });
             }
         });
-
+        // ... (unsubCall and unsubHistory remain similar)
         const unsubCall = firestore()
             .collection('call_sessions')
             .where('groupId', '==', groupId)
             .where('status', '==', 'ringing')
             .onSnapshot(snapshot => {
-                if (!snapshot.empty) {
-                    setActiveCall(snapshot.docs[0].data());
-                } else {
-                    setActiveCall(null);
-                }
+                if (!snapshot.empty) setActiveCall(snapshot.docs[0].data());
+                else setActiveCall(null);
             });
 
         const unsubHistory = firestore()
@@ -64,11 +67,9 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
             .where('groupId', '==', groupId)
             .where('status', '==', 'ended')
             .orderBy('createdAt', 'desc')
-            .limit(15)
+            .limit(10)
             .onSnapshot(snapshot => {
-                if (snapshot) {
-                    setHistory(snapshot.docs.map(doc => doc.data()));
-                }
+                if (snapshot) setHistory(snapshot.docs.map(doc => doc.data()));
             });
 
         return () => { unsubGroup(); unsubCall(); unsubHistory(); };
@@ -76,8 +77,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
 
     const handleToggleMember = (mId: string) => {
         if (mId === user?.uid) return;
-        setSelectedMembers(prev =>
-            prev.includes(mId) ? prev.filter(id => id !== mId) : [...prev, mId]
+        setSelectedMembers((prev: string[]) =>
+            prev.includes(mId) ? prev.filter((id: string) => id !== mId) : [...prev, mId]
         );
     };
 
@@ -103,15 +104,27 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 group.name,
                 'Rally',
                 selectedMembers,
-                callReason.trim() || group.description || 'Rally Needed!'
+                callReason.trim() || group.description || 'Rally Needed!',
+                priority,
+                scheduledAt
             );
             setShowCallModal(false);
             setCallReason('');
+            setPriority('casual');
+            setScheduledAt(null);
         } catch (e: any) {
             Alert.alert("Call Failed", "Check your connection.");
         } finally {
             setLoadingCall(false);
         }
+    };
+
+    const isOnline = (mId: string) => {
+        const data = memberStatus[mId];
+        if (!data || data.status !== 'online') return false;
+        if (!data.lastSeen) return false;
+        const lastSeenMs = data.lastSeen.toMillis ? data.lastSeen.toMillis() : (data.lastSeen || 0);
+        return (Date.now() - lastSeenMs) < 90000; // Online if active in last 90s
     };
 
     const isAdmin = group?.admin === user?.uid;
@@ -135,40 +148,29 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
             {/* Calling Hub */}
             <View style={styles.callHub}>
                 {activeCall ? (
-                    <LinearGradient colors={['#1e1e1e', '#111']} style={styles.activeCallCard}>
+                    <LinearGradient 
+                        colors={activeCall.priority === 'urgent' ? ['#7f1d1d', '#450a0a'] : ['#1e1e1e', '#111']} 
+                        style={styles.activeCallCard}
+                    >
                         <View style={styles.liveBadge}>
-                            <View style={styles.blinkDot} />
-                            <Text style={styles.liveText}>LIVE RALLY</Text>
+                            <View style={[styles.blinkDot, activeCall.priority === 'urgent' && { backgroundColor: '#fff' }]} />
+                            <Text style={styles.liveText}>{activeCall.priority === 'urgent' ? 'URGENT RALLY' : 'LIVE RALLY'}</Text>
                         </View>
 
                         <Text style={styles.activeReason}>"{activeCall.reason}"</Text>
                         <Text style={styles.callerText}>Started by {memberData[activeCall.callerId] || 'Squad'}</Text>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
-                                <CheckCircle color="#4CAF50" size={16} />
-                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'accepted').length}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Trash2 color="#F44336" size={16} />
-                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'rejected').length}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <RefreshCw color="#FFC107" size={16} />
-                                <Text style={styles.statVal}>{Object.values(activeCall.responses).filter(v => v === 'pending').length}</Text>
-                            </View>
-                        </View>
-
                         <TouchableOpacity
-                            style={styles.joinCallBtn}
+                            style={[styles.joinCallBtn, activeCall.priority === 'urgent' && { backgroundColor: '#ef4444' }]}
                             onPress={() => navigation.navigate('Ringing', {
                                 callId: activeCall.callId,
                                 groupName: activeCall.groupName,
                                 callerName: memberData[activeCall.callerId] || 'Someone',
-                                reason: activeCall.reason
+                                reason: activeCall.reason,
+                                priority: activeCall.priority
                             })}
                         >
-                            <Text style={styles.joinText}>ENTER CALL HUB</Text>
+                            <Text style={[styles.joinText, activeCall.priority === 'urgent' && { color: '#fff' }]}>ENTER CALL HUB</Text>
                         </TouchableOpacity>
                     </LinearGradient>
                 ) : (
@@ -209,14 +211,14 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                 <View style={styles.memberInfo}>
                                     <View style={[styles.avatarSm, m === group.admin && { borderColor: '#7C3AED', borderWidth: 1 }]}>
                                         <Text style={styles.avatarText}>{(memberData[m] || '?')[0].toUpperCase()}</Text>
+                                        {isOnline(m) && <View style={styles.onlineDot} />}
                                     </View>
-                                    <Text style={styles.memberName}>
-                                        {m === user?.uid ? 'You' : (memberData[m] || 'Loading...')}
-                                    </Text>
+                                    <View>
+                                        <Text style={styles.memberName}>{m === user?.uid ? 'You' : (memberData[m] || '...')}</Text>
+                                        <Text style={styles.memberStatusText}>{isOnline(m) ? 'Active now' : 'Away'}</Text>
+                                    </View>
                                 </View>
-                                {m === user?.uid ? (
-                                    <Text style={styles.meBadge}>ME</Text>
-                                ) : (
+                                {m === user?.uid ? <Text style={styles.meBadge}>ME</Text> : (
                                     selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={22} /> : <Circle color="#333" size={22} />
                                 )}
                             </TouchableOpacity>
@@ -224,30 +226,17 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                     </View>
                 ) : (
                     history.map((h, idx) => (
-                        <View key={idx} style={styles.historyCard}>
+                         <View key={idx} style={styles.historyCard}>
                             <View style={styles.historyTop}>
                                 <Text style={styles.hReason}>"{h.reason || 'Rally'}"</Text>
                                 <Text style={styles.hDate}>
                                     {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
                                 </Text>
                             </View>
-                            <Text style={styles.hBy}>By {memberData[h.callerId] || 'Squad'}</Text>
-
+                            <Text style={styles.hBy}>By {memberData[h.callerId] || 'Squad'} • {h.priority || 'casual'}</Text>
                             <View style={styles.hStatsRow}>
-                                <Text style={[styles.hStat, { color: '#4CAF50' }]}>✅ {Object.values(h.responses).filter(v => v === 'accepted').length}</Text>
-                                <Text style={[styles.hStat, { color: '#F44336' }]}>❌ {Object.values(h.responses).filter(v => v === 'rejected').length}</Text>
-                                <Text style={[styles.hStat, { color: '#FFC107' }]}>⏳ {Object.values(h.responses).filter(v => v === 'pending').length}</Text>
-                            </View>
-
-                            <View style={styles.attendeeList}>
-                                {Object.entries(h.responses).map(([uid, status]: [string, any]) => (
-                                    <View key={uid} style={styles.miniAttendee}>
-                                        <Text style={[styles.miniName, status === 'accepted' ? styles.txtGreen : status === 'rejected' ? styles.txtRed : styles.txtYellow]}>
-                                            {memberData[uid] || '...'}
-                                        </Text>
-                                        <Text style={styles.miniIcon}>{status === 'accepted' ? '✅' : status === 'rejected' ? '❌' : '⏳'}</Text>
-                                    </View>
-                                ))}
+                                <Text style={[styles.hStat, { color: '#4CAF50' }]}>✅ {Object.values(h.responses || {}).filter(v => v === 'accepted').length}</Text>
+                                <Text style={[styles.hStat, { color: '#F44336' }]}>❌ {Object.values(h.responses || {}).filter(v => v === 'rejected').length}</Text>
                             </View>
                         </View>
                     ))
@@ -259,12 +248,10 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                     <TouchableOpacity style={styles.dangerBtn} onPress={() => {
                         Alert.alert("Delete Squad", "Clear all history and members?", [
                             { text: "Cancel" },
-                            {
-                                text: "Delete", style: 'destructive', onPress: async () => {
-                                    await firestore().collection('groups').doc(groupId).delete();
-                                    navigation.goBack();
-                                }
-                            }
+                            { text: "Delete", style: 'destructive', onPress: async () => {
+                                await firestore().collection('groups').doc(groupId).delete();
+                                navigation.goBack();
+                            }}
                         ]);
                     }}>
                         <Trash2 color="#444" size={18} />
@@ -282,16 +269,48 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 )}
             </View>
 
-            {/* Better Modal Design */}
-            <Modal visible={showCallModal} transparent animationType="fade">
+            {/* Modal Update */}
+            <Modal visible={showCallModal} transparent animationType="slide">
                 <View style={styles.modalBlur}>
                     <View style={styles.modalBox}>
                         <Text style={styles.mTitle}>Broadcast Rally</Text>
-                        <Text style={styles.mSub}>All selected members will receive a full-screen ringing alert.</Text>
+                        
+                        <View style={styles.priorityRow}>
+                            {(['casual', 'priority', 'urgent'] as const).map((p) => (
+                                <TouchableOpacity 
+                                    key={p} 
+                                    style={[styles.priorityTab, priority === p && styles.priorityTabActive, priority === p && p === 'urgent' && { backgroundColor: '#ef4444' }]}
+                                    onPress={() => setPriority(p)}
+                                >
+                                    <Text style={[styles.priorityTabText, priority === p && styles.priorityTabTextActive]}>{p.toUpperCase()}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <View style={styles.scheduleRow}>
+                            <TouchableOpacity 
+                                style={[styles.schedBtn, scheduledAt === null && styles.schedBtnActive]} 
+                                onPress={() => setScheduledAt(null)}
+                            >
+                                <Text style={styles.schedBtnText}>NOW</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
+                                onPress={() => setScheduledAt(Date.now() + 1800000)}
+                            >
+                                <Text style={styles.schedBtnText}>+30 MIN</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
+                                onPress={() => setScheduledAt(Date.now() + 3600000)}
+                            >
+                                <Text style={styles.schedBtnText}>+1 HOUR</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         <TextInput
                             style={styles.mInput}
-                            placeholder="Reason for call..."
+                            placeholder="Reason for call (e.g. Lunch? Game night?)"
                             placeholderTextColor="#555"
                             value={callReason}
                             onChangeText={setCallReason}
@@ -303,7 +322,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                 <Text style={styles.mBtnTxtCancel}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.mBtnConfirm} onPress={handleTriggerCall} disabled={loadingCall}>
-                                {loadingCall ? <ActivityIndicator color="#fff" /> : <Text style={styles.mBtnTxtConfirm}>START CALL</Text>}
+                                {loadingCall ? <ActivityIndicator color="#fff" /> : <Text style={styles.mBtnTxtConfirm}>START SQUAD CALL</Text>}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -351,7 +370,18 @@ const styles = StyleSheet.create({
     avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     memberName: { color: '#fff', fontWeight: '500' },
     meBadge: { color: '#444', fontSize: 10, fontWeight: 'bold' },
+    onlineDot: { position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#111' },
+    memberStatusText: { color: '#444', fontSize: 11, marginTop: 2 },
     historyCard: { backgroundColor: '#111', padding: 15, borderRadius: 16, marginBottom: 12 },
+    priorityRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
+    priorityTab: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center', borderWidth: 1, borderColor: '#333' },
+    priorityTabActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+    priorityTabText: { color: '#666', fontSize: 10, fontWeight: '800' },
+    priorityTabTextActive: { color: '#fff' },
+    scheduleRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    schedBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center' },
+    schedBtnActive: { backgroundColor: '#7C3AED' },
+    schedBtnText: { color: '#fff', fontSize: 10, fontWeight: '900' },
     historyTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     hReason: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
     hDate: { color: '#444', fontSize: 11 },

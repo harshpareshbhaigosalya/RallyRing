@@ -51,6 +51,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'accepted' });
+                await notifee.stopForegroundService();
             } catch (e) { }
         } else if (actionId === 'reject') {
             try {
@@ -58,21 +59,21 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'rejected' });
+                await notifee.stopForegroundService();
             } catch (e) { }
             try {
                 await notifee.cancelNotification(callId);
-                await notifee.stopForegroundService();
             } catch (e) { }
         }
     }
 
     if (actionId === 'reject') {
         try {
+            await notifee.stopForegroundService();
             const notifId = detail.notification ? detail.notification.id : null;
             if (notifId) {
                 await notifee.cancelNotification(notifId);
             }
-            await notifee.stopForegroundService();
         } catch (e) { }
     }
 });

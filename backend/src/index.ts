@@ -72,7 +72,7 @@ app.post('/register', async (req, res) => {
  */
 app.post('/trigger-call', async (req, res) => {
     try {
-        const { groupId, callerId, groupName, purposeType, targetUids, reason } = req.body;
+        const { groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt } = req.body;
 
         // 1. Verify group and caller membership
         const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -108,6 +108,8 @@ app.post('/trigger-call', async (req, res) => {
             groupName,
             purposeType: purposeType || 'Rally',
             reason: reason || '',
+            priority: priority || 'casual',
+            scheduledAt: scheduledAt || null,
             status: 'ringing',
             responses,
             targetUids: actualTargets,
@@ -149,18 +151,14 @@ app.post('/trigger-call', async (req, res) => {
             return res.status(200).send({ message: "No other members to call", callId });
         }
 
-        // 4. Identify Caller (Get name for notification)
+        // 4. Identify Caller
         let callerName = "Someone";
         let callerDocSnapshot = userDocs.find(d => d.id === callerId);
 
         if (!callerDocSnapshot) {
-            // Force fetch caller doc if not already in batch (usually caller is excluded from targets)
             const directDocLookup = await db.collection('users').doc(callerId).get();
-            if (directDocLookup.exists) {
-                callerDocSnapshot = directDocLookup as any;
-            }
+            if (directDocLookup.exists) callerDocSnapshot = directDocLookup as any;
         }
-
         if (callerDocSnapshot) {
             callerName = (callerDocSnapshot.data() as any).name || "Someone";
         }
@@ -174,6 +172,7 @@ app.post('/trigger-call', async (req, res) => {
                 callerName,
                 purposeType: purposeType || 'Rally',
                 reason: reason || '',
+                priority: priority || 'casual',
             },
             tokens: tokens,
             android: {

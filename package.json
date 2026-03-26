@@ -8,5 +8,8 @@
     "scripts": {
         "build": "cd backend && npm install && npm run build",
         "start": "cd backend && npm run start"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.0"
     }
 }

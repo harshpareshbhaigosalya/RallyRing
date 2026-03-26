@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { 
+    View, Text, TextInput, TouchableOpacity, 
+    StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, 
+    Dimensions 
+} from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { useStore } from '../store/useStore';
+import LinearGradient from 'react-native-linear-gradient';
+import { ArrowLeft, Users, Plus, Hash } from 'lucide-react-native';
 
 const CreateGroupScreen = ({ navigation }: any) => {
     const [name, setName] = useState('');
@@ -24,37 +30,66 @@ const CreateGroupScreen = ({ navigation }: any) => {
             });
             navigation.goBack();
         } catch (e) {
-            Alert.alert("Error", "Failed to create group");
+            Alert.alert("Error", "Failed to create squad");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>New Group</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Group Name (e.g. Lunch Mates)"
-                placeholderTextColor="#666"
-                value={name}
-                onChangeText={setName}
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Default Reason (Optional)"
-                placeholderTextColor="#666"
-                value={description}
-                onChangeText={setDescription}
-            />
-            <TouchableOpacity
-                style={[styles.button, loading && { opacity: 0.7 }]}
-                onPress={handleCreate}
-                disabled={loading}
-            >
-                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Create Group</Text>}
-            </TouchableOpacity>
-        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <ArrowLeft color="#fff" size={24} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.content}>
+                <View style={styles.titleArea}>
+                    <View style={styles.iconBox}>
+                        <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
+                             <Plus color="#fff" size={32} />
+                        </LinearGradient>
+                    </View>
+                    <Text style={styles.title}>New Squad</Text>
+                    <Text style={styles.subtitle}>Define your rally point and gather your friends.</Text>
+                </View>
+
+                <View style={styles.form}>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.inputLabel}>SQUAD NAME</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g. Lunch Mates"
+                            placeholderTextColor="#444"
+                            value={name}
+                            onChangeText={setName}
+                        />
+                    </View>
+
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.inputLabel}>DESCRIPTION (OPTIONAL)</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Reason or focus..."
+                            placeholderTextColor="#444"
+                            value={description}
+                            onChangeText={setDescription}
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={handleCreate}
+                        disabled={loading}
+                    >
+                         <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.btnGradient}>
+                            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.btnText}>Launch Squad</Text>}
+                         </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -70,7 +105,7 @@ const JoinGroupScreen = ({ navigation }: any) => {
             const gId = groupId.trim().toUpperCase();
             const doc = await firestore().collection('groups').doc(gId).get();
             if (!doc.exists) {
-                Alert.alert("Error", "Group not found");
+                Alert.alert("Error", "Squad not found. Double check the ID.");
                 return;
             }
 
@@ -78,39 +113,74 @@ const JoinGroupScreen = ({ navigation }: any) => {
                 members: firestore.FieldValue.arrayUnion(user.uid)
             });
             navigation.goBack();
-        } catch (e) { Alert.alert("Error", "Failed to join group"); }
+        } catch (e) { Alert.alert("Error", "Failed to join squad"); }
         finally { setLoading(false); }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Join Group</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter Group ID"
-                placeholderTextColor="#666"
-                value={groupId}
-                onChangeText={setGroupId}
-                autoCapitalize="characters"
-            />
-            <TouchableOpacity
-                style={[styles.button, loading && { opacity: 0.7 }]}
-                onPress={handleJoin}
-                disabled={loading}
-            >
-                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Join Group</Text>}
-            </TouchableOpacity>
-        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <ArrowLeft color="#fff" size={24} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.content}>
+                <View style={styles.titleArea}>
+                    <View style={styles.iconBox}>
+                        <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.iconGradient}>
+                             <Hash color="#fff" size={32} />
+                        </LinearGradient>
+                    </View>
+                    <Text style={styles.title}>Join Squad</Text>
+                    <Text style={styles.subtitle}>Enter the invitation code to link with your crew.</Text>
+                </View>
+
+                <View style={styles.form}>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.inputLabel}>SQUAD INVITATION CODE</Text>
+                        <TextInput
+                            style={[styles.input, { color: '#3b82f6', fontSize: 24, fontWeight: '800' }]}
+                            placeholder="e.g. A1B2C3"
+                            placeholderTextColor="#444"
+                            value={groupId}
+                            onChangeText={setGroupId}
+                            autoCapitalize="characters"
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={handleJoin}
+                        disabled={loading}
+                    >
+                         <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.btnGradient}>
+                            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.btnText}>Enter Squad</Text>}
+                         </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
     );
 };
 
-// Simplified export
 export { CreateGroupScreen, JoinGroupScreen };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000', padding: 20 },
-    title: { fontSize: 24, color: '#fff', fontWeight: 'bold', marginBottom: 20, marginTop: 40 },
-    input: { backgroundColor: '#1e1e1e', color: '#fff', padding: 15, borderRadius: 10, fontSize: 18, marginBottom: 20 },
-    button: { backgroundColor: '#7C3AED', padding: 18, borderRadius: 10, alignItems: 'center' },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' }
+    container: { flex: 1, backgroundColor: '#000' },
+    header: { paddingHorizontal: 25, paddingTop: 60, marginBottom: 20 },
+    backBtn: { backgroundColor: '#111', padding: 12, borderRadius: 20, alignSelf: 'flex-start' },
+    content: { flex: 1, paddingHorizontal: 25 },
+    titleArea: { marginBottom: 40 },
+    iconBox: { width: 70, height: 70, borderRadius: 25, overflow: 'hidden', marginBottom: 20 },
+    iconGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    title: { color: '#fff', fontSize: 34, fontWeight: 'bold' },
+    subtitle: { color: '#666', fontSize: 16, marginTop: 8, lineHeight: 24 },
+    form: { width: '100%' },
+    inputWrapper: { marginBottom: 30 },
+    inputLabel: { color: '#7C3AED', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 12 },
+    input: { backgroundColor: '#111', color: '#fff', padding: 20, borderRadius: 22, fontSize: 18, borderWidth: 1, borderColor: '#1a1a1a' },
+    actionBtn: { height: 65, borderRadius: 22, overflow: 'hidden', marginTop: 10 },
+    btnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    btnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
