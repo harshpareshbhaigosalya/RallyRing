@@ -81,7 +81,7 @@ const App = () => {
             await firestore()
               .collection('call_sessions')
               .doc(callId)
-              .update({ [`responses.${user.uid}`]: 'accepted' });
+              .update({ [`responses.${user?.uid || 'offline'}`]: 'accepted' });
           } catch (e) { }
           navigate('Ringing', {
             callId,
@@ -126,18 +126,16 @@ const App = () => {
     const checkInitialNotification = async () => {
       if (initialNotifHandled.current) return;
 
-      const userUid = user?.uid; // Capture uid for async block
-
       // Check Notifee initial notification
       const initial = await notifee.getInitialNotification();
       if (initial?.notification?.data?.callId) {
         initialNotifHandled.current = true;
         const { callId, groupName, callerName, reason, priority = 'casual' } = initial.notification.data;
 
-        if (initial.pressAction?.id === 'accept' && userUid) {
+        if (initial.pressAction?.id === 'accept' && user?.uid) {
           try {
             await firestore().collection('call_sessions').doc(callId as string)
-              .update({ [`responses.${userUid}`]: 'accepted' });
+              .update({ [`responses.${user.uid}`]: 'accepted' });
           } catch (e) { }
         }
 

@@ -101,19 +101,21 @@ const HomeScreen = ({ navigation }: any) => {
                             style={styles.activeCallBanner}
                             onPress={() => {
                                 const h = recentHistory.find(h => h.status === 'ringing');
-                                navigation.navigate('Ringing', {
-                                    callId: h.callId,
-                                    groupName: h.groupName,
-                                    callerName: 'Someone',
-                                    reason: h.reason,
-                                    priority: h.priority
-                                });
+                                if (h) {
+                                    navigation.navigate('Ringing', {
+                                        callId: h.callId,
+                                        groupName: h.groupName,
+                                        callerName: 'Someone',
+                                        reason: h.reason,
+                                        priority: h.priority
+                                    });
+                                }
                             }}
                         >
-                            <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.bannerGradient}>
+                            <View style={[styles.bannerGradient, { backgroundColor: '#ef4444' }]}>
                                 <Phone size={16} color="#fff" strokeWidth={3} />
                                 <Text style={styles.bannerText}>JOIN ONGOING RALLY</Text>
-                            </LinearGradient>
+                            </View>
                         </TouchableOpacity>
                     )}
 

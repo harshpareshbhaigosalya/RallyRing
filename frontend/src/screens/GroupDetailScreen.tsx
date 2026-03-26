@@ -68,9 +68,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         const unsubHistory = firestore()
             .collection('call_sessions')
             .where('groupId', '==', groupId)
-            .where('status', '==', 'ended')
             .orderBy('createdAt', 'desc')
-            .limit(10)
+            .limit(50)
             .onSnapshot(snapshot => {
                 if (snapshot) setHistory(snapshot.docs.map(doc => doc.data()));
             });
@@ -177,11 +176,14 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                         </TouchableOpacity>
                     </LinearGradient>
                 ) : (
-                    <TouchableOpacity style={styles.startCallBtn} onPress={() => setShowCallModal(true)}>
-                        <LinearGradient colors={['#7C3AED', '#5B21B6']} style={styles.startGradient}>
+                    <TouchableOpacity 
+                        style={styles.startCallBtn} 
+                        onPress={() => setShowCallModal(true)}
+                    >
+                        <View style={[styles.startGradient, { backgroundColor: '#7C3AED' }]}>
                             <PhoneCall color="#fff" size={24} />
                             <Text style={styles.startCallText}>START SQUAD RALLY</Text>
-                        </LinearGradient>
+                        </View>
                     </TouchableOpacity>
                 )}
             </View>
@@ -228,21 +230,31 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                         ))}
                     </View>
                 ) : (
-                    history.map((h, idx) => (
-                         <View key={idx} style={styles.historyCard}>
-                            <View style={styles.historyTop}>
-                                <Text style={styles.hReason}>"{h.reason || 'Rally'}"</Text>
-                                <Text style={styles.hDate}>
-                                    {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
-                                </Text>
-                            </View>
-                            <Text style={styles.hBy}>By {memberData[h.callerId] || 'Squad'} • {h.priority || 'casual'}</Text>
-                            <View style={styles.hStatsRow}>
-                                <Text style={[styles.hStat, { color: '#4CAF50' }]}>✅ {Object.values(h.responses || {}).filter(v => v === 'accepted').length}</Text>
-                                <Text style={[styles.hStat, { color: '#F44336' }]}>❌ {Object.values(h.responses || {}).filter(v => v === 'rejected').length}</Text>
-                            </View>
+                    history.length === 0 ? (
+                        <View style={styles.emptyHistory}>
+                            <History color="#333" size={40} />
+                            <Text style={styles.emptyHistoryText}>No rallies in this squad yet.</Text>
                         </View>
-                    ))
+                    ) : (
+                        history.map((h, idx) => (
+                            <View key={idx} style={styles.historyCard}>
+                                <View style={styles.historyTop}>
+                                    <View style={styles.hReasonRow}>
+                                        <Text style={styles.hReason}>"{h.reason || 'Rally'}"</Text>
+                                        {h.status === 'ringing' && <View style={styles.hLiveBadge}><Text style={styles.hLiveText}>LIVE</Text></View>}
+                                    </View>
+                                    <Text style={styles.hDate}>
+                                        {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                                    </Text>
+                                </View>
+                                <Text style={styles.hBy}>By {memberData[h.callerId] || 'Squad'} • {h.priority || 'casual'}</Text>
+                                <View style={h.status === 'ringing' ? styles.hStatsRowActive : styles.hStatsRow}>
+                                    <View style={styles.hStatItem}><Text style={{ color: '#22c55e', fontWeight: 'bold' }}>✅ {Object.values(h.responses || {}).filter(v => v === 'accepted').length}</Text></View>
+                                    <View style={styles.hStatItem}><Text style={{ color: '#ef4444', fontWeight: 'bold' }}>❌ {Object.values(h.responses || {}).filter(v => v === 'rejected').length}</Text></View>
+                                </View>
+                            </View>
+                        ))
+                    )
                 )}
             </ScrollView>
 
@@ -326,8 +338,16 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                             <TouchableOpacity style={styles.mBtnCancel} onPress={() => setShowCallModal(false)}>
                                 <Text style={styles.mBtnTxtCancel}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.mBtnConfirm} onPress={handleTriggerCall} disabled={loadingCall}>
-                                {loadingCall ? <ActivityIndicator color="#fff" /> : <Text style={styles.mBtnTxtConfirm}>START SQUAD CALL</Text>}
+                            <TouchableOpacity 
+                                style={[styles.mBtnConfirm, loadingCall && { opacity: 0.7 }]} 
+                                onPress={handleTriggerCall}
+                                disabled={loadingCall}
+                            >
+                                {loadingCall ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.mBtnTxtConfirm}>START RALLY 💥</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -377,7 +397,6 @@ const styles = StyleSheet.create({
     meBadge: { color: '#444', fontSize: 10, fontWeight: 'bold' },
     onlineDot: { position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#111' },
     memberStatusText: { color: '#444', fontSize: 11, marginTop: 2 },
-    historyCard: { backgroundColor: '#111', padding: 15, borderRadius: 16, marginBottom: 12 },
     priorityRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
     priorityTab: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center', borderWidth: 1, borderColor: '#333' },
     priorityTabActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
@@ -387,12 +406,6 @@ const styles = StyleSheet.create({
     schedBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center' },
     schedBtnActive: { backgroundColor: '#7C3AED' },
     schedBtnText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-    historyTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    hReason: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-    hDate: { color: '#444', fontSize: 11 },
-    hBy: { color: '#666', fontSize: 12, marginBottom: 10 },
-    hStatsRow: { flexDirection: 'row', marginBottom: 12 },
-    hStat: { fontSize: 13, fontWeight: 'bold', marginRight: 15 },
     attendeeList: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#1d1d1d', paddingTop: 10 },
     miniAttendee: { flexDirection: 'row', alignItems: 'center', marginRight: 12, marginBottom: 6 },
     miniName: { fontSize: 11, fontWeight: '500' },
@@ -412,7 +425,20 @@ const styles = StyleSheet.create({
     mBtnCancel: { padding: 15, flex: 1, alignItems: 'center' },
     mBtnConfirm: { backgroundColor: '#7C3AED', padding: 15, flex: 1.5, borderRadius: 15, alignItems: 'center' },
     mBtnTxtCancel: { color: '#666', fontWeight: 'bold' },
-    mBtnTxtConfirm: { color: '#fff', fontWeight: 'bold' }
+    mBtnTxtConfirm: { color: '#fff', fontWeight: 'bold' },
+    emptyHistory: { alignItems: 'center', marginTop: 60, opacity: 0.5 },
+    emptyHistoryText: { color: '#666', marginTop: 15, fontSize: 13, fontWeight: '600' },
+    historyCard: { backgroundColor: '#0a0a0a', padding: 20, borderRadius: 20, marginBottom: 12, borderWidth: 1, borderColor: '#111' },
+    historyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5 },
+    hReasonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+    hReason: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    hLiveBadge: { backgroundColor: '#ef4444', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    hLiveText: { color: '#fff', fontSize: 8, fontWeight: '900' },
+    hDate: { color: '#444', fontSize: 11, fontWeight: 'bold', marginLeft: 10 },
+    hBy: { color: '#666', fontSize: 12, marginBottom: 12 },
+    hStatsRow: { flexDirection: 'row', gap: 12 },
+    hStatsRowActive: { flexDirection: 'row', gap: 12, opacity: 0.3 },
+    hStatItem: { backgroundColor: '#111', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
 });
 
 export default GroupDetailScreen;

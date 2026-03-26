@@ -2,7 +2,7 @@ const axios = require('axios');
 
 // SELF-TEST: This will ring YOUR OWN phone from the laptop!
 const API_URL = 'https://rally-ring.vercel.app';
-const YOUR_UID = '8G0PCHX0'; // Harsh's real User ID
+const YOUR_UID = '0TZ7XGRJ'; // Harsh's real User ID
 
 async function triggerSelfTest(priority = 'urgent') {
     console.log(`📡 Sending a DIRECT ${priority.toUpperCase()} TEST RALLY to your phone (${YOUR_UID})...`);
