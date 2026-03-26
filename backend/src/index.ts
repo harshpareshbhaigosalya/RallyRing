@@ -79,7 +79,7 @@ app.post('/trigger-call', async (req, res) => {
         if (!groupDoc.exists) return res.status(404).send({ error: "Group not found" });
 
         const groupData = groupDoc.data();
-        if (!groupData?.members.includes(callerId)) {
+        if (callerId !== 'SYSTEM' && !groupData?.members.includes(callerId)) {
             return res.status(403).send({ error: "You are not a member of this group" });
         }
 
@@ -113,6 +113,7 @@ app.post('/trigger-call', async (req, res) => {
             status: 'ringing',
             responses,
             targetUids: actualTargets,
+            members: groupData.members, // Add this for global history query
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             timeoutAt: Date.now() + 600000 // 10 minutes auto-timeout (optional check)
         });
@@ -241,7 +242,8 @@ app.post('/stop-call', async (req, res) => {
  */
 app.post('/test-call', async (req, res) => {
     try {
-        const { targetUid } = req.body;
+        const { targetUid, priority = 'casual' } = req.body;
+        const isUrgent = priority === 'urgent';
 
         const targetDoc = await db.collection('users').doc(targetUid).get();
         if (!targetDoc.exists) return res.status(404).send({ error: "User not found" });
@@ -257,7 +259,7 @@ app.post('/test-call', async (req, res) => {
             groupId: 'test_group',
             callerId: 'system_test',
             groupName: 'Rally Testing Room',
-            purposeType: 'Rally',
+            priority: priority,
             reason: 'Testing the ringing functionality!',
             status: 'ringing',
             responses: {
@@ -278,6 +280,7 @@ app.post('/test-call', async (req, res) => {
                 callerName: 'Auto AI Tester',
                 purposeType: 'Rally',
                 reason: 'Testing the ringing functionality!',
+                priority: priority,
             },
             token: fcmToken,
             android: {

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    Animated, ScrollView, Dimensions, Platform, BackHandler, Vibration, Modal
+    Animated, ScrollView, Dimensions, Platform, BackHandler, Vibration, Modal,
+    PanResponder, TextInput
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import notifee from '@notifee/react-native';
@@ -22,10 +23,21 @@ const RingingScreen = ({ route, navigation }: any) => {
     const [memberNames, setMemberNames] = useState<Record<string, string>>({});
     const [memberStatus, setMemberStatus] = useState<Record<string, any>>({});
     const [showQuickRes, setShowQuickRes] = useState(false);
+    const [customMsg, setCustomMsg] = useState('');
     
     const autoEndFired = useRef(false);
     const soundRef = useRef<Sound | null>(null);
     const isRinging = useRef(false);
+
+    // -- Swipe Gesture Logic --
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 20,
+            onPanResponderRelease: (_, gesture) => {
+                if (gesture.dy < -50) setShowQuickRes(true);
+            }
+        })
+    ).current;
 
     const myId = user?.uid || '';
     const myStatus = session?.responses?.[myId];
@@ -37,10 +49,16 @@ const RingingScreen = ({ route, navigation }: any) => {
         if (isRinging.current || myStatus !== 'pending' || amCaller) return;
 
         const ringtone = new Sound('ringtone', '', (error) => {
-            if (error) return;
+            if (error) {
+                console.warn('Failed to load sound', error);
+                return;
+            }
+            // Continuous loop
             ringtone.setNumberOfLoops(-1);
             ringtone.setVolume(isUrgent ? 1.0 : 0.7);
-            ringtone.play();
+            ringtone.play((success) => {
+                if (!success) console.warn('Sound playback failed');
+            });
             isRinging.current = true;
         });
         soundRef.current = ringtone;
@@ -195,7 +213,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                     </ScrollView>
                 </View>
 
-                <View style={styles.footer}>
+                <View style={styles.footer} {...panResponder.panHandlers}>
                     {myStatus === 'pending' && !amCaller ? (
                         <View style={styles.controlsCol}>
                              <View style={styles.callControls}>
@@ -233,6 +251,22 @@ const RingingScreen = ({ route, navigation }: any) => {
                                     <Text style={styles.quickOpText}>{op.label}</Text>
                                 </TouchableOpacity>
                             ))}
+                        </View>
+                        
+                        <View style={styles.customResRow}>
+                            <TextInput 
+                                style={styles.customInput}
+                                placeholder="Type custom message..."
+                                placeholderTextColor="#94a3b8"
+                                value={customMsg}
+                                onChangeText={setCustomMsg}
+                            />
+                            <TouchableOpacity 
+                                style={styles.sendCustomBtn}
+                                onPress={() => { if (customMsg.trim()) handleResponse(`accepted:${customMsg}`); }}
+                            >
+                                <Send color="#fff" size={20} />
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
@@ -285,7 +319,10 @@ const styles = StyleSheet.create({
     modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     quickGrid: { gap: 12 },
     quickOpItem: { backgroundColor: '#334155', padding: 18, borderRadius: 15, alignItems: 'center' },
-    quickOpText: { color: '#fff', fontSize: 16, fontWeight: '600' }
+    quickOpText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    customResRow: { flexDirection: 'row', alignItems: 'center', marginTop: 15, gap: 10 },
+    customInput: { flex: 1, backgroundColor: '#334155', borderRadius: 16, padding: 12, color: '#fff' },
+    sendCustomBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#6366f1', justifyContent: 'center', alignItems: 'center' }
 });
 
 export default RingingScreen;

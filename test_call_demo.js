@@ -2,10 +2,10 @@ const axios = require('axios');
 
 // CONFIG: Replace with your details for testing
 const API_URL = 'https://rally-ring.vercel.app';
-const GROUP_ID = 'XXXXXX'; // Enter a group ID you joined
-const CALLER_ID = 'SYSTEM';
-const GROUP_NAME = 'Test Squad';
-const CALLER_NAME = 'Laptop Demo';
+const GROUP_ID = 'GJTBY0'; // Enter a group ID you joined
+const CALLER_ID = 'HIZKGI9A'; // Harsh's real User ID in the squad
+const GROUP_NAME = 'Testing squad';
+const CALLER_NAME = 'Laptop System';
 
 async function triggerTestCall(priority = 'casual') {
     console.log(`🚀 Sending ${priority.toUpperCase()} rally to group ${GROUP_ID}...`);

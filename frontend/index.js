@@ -5,7 +5,7 @@
  */
 
 import 'react-native-gesture-handler';
-import { AppRegistry } from 'react-native';
+import { AppRegistry, Vibration } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
 import messaging from '@react-native-firebase/messaging';
@@ -15,7 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onMessageReceived } from './src/utils/notificationHandler';
 
 // ─── 1. FCM Background handler (app in background or killed) ─────────────────
-messaging().setBackgroundMessageHandler(onMessageReceived);
+messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+    if (remoteMessage.data?.type === 'INCOMING_CALL') {
+        const pattern = remoteMessage.data.priority === 'urgent' ? [200, 200, 200, 200] : [500, 1000];
+        Vibration.vibrate(pattern, true);
+    }
+    await onMessageReceived(remoteMessage);
+});
 
 // ─── 2. Notifee Background event handler ──────────────────────────────────────
 notifee.onBackgroundEvent(async ({ type, detail }) => {

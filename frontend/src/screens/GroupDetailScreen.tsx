@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Tex
 import firestore from '@react-native-firebase/firestore';
 import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
-import { PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, History, Calendar, ChevronRight, Users, Bell } from 'lucide-react-native';
+import { 
+    PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, 
+    History, Calendar, ChevronRight, Users, Bell, XCircle 
+} from 'lucide-react-native';
 import notifee from '@notifee/react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -296,16 +299,18 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                             </TouchableOpacity>
                             <TouchableOpacity 
                                 style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
-                                onPress={() => setScheduledAt(Date.now() + 1800000)}
+                                onPress={() => {
+                                    const next = (scheduledAt || Date.now()) + 900000; // +15 min
+                                    setScheduledAt(next);
+                                }}
                             >
-                                <Text style={styles.schedBtnText}>+30 MIN</Text>
+                                <Text style={styles.schedBtnText}>{scheduledAt ? `IN ${Math.round((scheduledAt - Date.now())/60000)} MIN` : '+15 MIN'}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
-                                onPress={() => setScheduledAt(Date.now() + 3600000)}
-                            >
-                                <Text style={styles.schedBtnText}>+1 HOUR</Text>
-                            </TouchableOpacity>
+                            {scheduledAt && (
+                                <TouchableOpacity style={styles.schedBtn} onPress={() => setScheduledAt(null)}>
+                                    <XCircle color="#fff" size={14} />
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <TextInput

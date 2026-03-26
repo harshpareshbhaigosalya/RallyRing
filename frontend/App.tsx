@@ -159,6 +159,7 @@ const App = () => {
       if (fcmInitial?.data?.type === 'INCOMING_CALL' && fcmInitial?.data?.callId) {
         initialNotifHandled.current = true;
         const { callId, groupName, callerName, reason, priority = 'casual' } = fcmInitial.data;
+        
         let attempts = 0;
         const interval = setInterval(() => {
           attempts++;
@@ -167,8 +168,8 @@ const App = () => {
             reason: (reason as string) || '',
             priority: (priority as string) || 'casual',
           });
-          if (success || attempts > 50) clearInterval(interval);
-        }, 100);
+          if (success || attempts > 100) clearInterval(interval);
+        }, 300); // 300ms intervals to be less aggressive but longer
       }
     };
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TouchableOpacity, 
-    Share, Alert, StatusBar, Platform 
+    Share, Alert, StatusBar, Platform, ScrollView 
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
@@ -12,6 +12,7 @@ import LinearGradient from 'react-native-linear-gradient';
 const HomeScreen = ({ navigation }: any) => {
     const { user, groups, setGroups, setUser } = useStore();
     const [stats, setStats] = useState({ online: 0, total: 0 });
+    const [recentHistory, setRecentHistory] = useState<any[]>([]);
 
     useEffect(() => {
         if (!user || !user.uid) return;
@@ -29,7 +30,18 @@ const HomeScreen = ({ navigation }: any) => {
         // 2. Simple way to count "active" people in user's groups (approximate)
         // For a true "Wow" we could listen to presence of all friends, but let's keep it light.
 
-        return () => unsubscribe();
+
+        // 3. Global History listener
+        const unsubHistory = firestore()
+            .collection('call_sessions')
+            .where('members', 'array-contains', user.uid)
+            .orderBy('createdAt', 'desc')
+            .limit(5)
+            .onSnapshot(snap => {
+                if (snap) setRecentHistory(snap.docs.map(doc => doc.data()));
+            });
+
+        return () => { unsubscribe(); unsubHistory(); };
     }, [user]);
 
     const onShare = async (groupId: string) => {
@@ -110,8 +122,26 @@ const HomeScreen = ({ navigation }: any) => {
                     data={groups}
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={styles.list}
-                    showsVerticalScrollIndicator={false}
+                    ListHeaderComponent={
+                        recentHistory.length > 0 ? (
+                            <View style={styles.historySection}>
+                                <Text style={styles.historyTitle}>RECENT RALLIES</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+                                    {recentHistory.map((h, i) => (
+                                        <View key={i} style={styles.historyMiniCard}>
+                                            <View style={h.priority === 'urgent' ? styles.indicatorUrgent : styles.indicatorCasual} />
+                                            <Text style={styles.historyReason} numberOfLines={1}>{h.reason.toUpperCase() || 'RALLY'}</Text>
+                                            <Text style={h.status === 'ended' ? styles.historyStatusDone : styles.historyStatusActive}>
+                                                {h.status === 'ringing' ? 'LIVE NOW 📡' : 'DONE ✅'}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                                <View style={styles.spacer} />
+                                <Text style={styles.sectionTitle}>YOUR SQUADS</Text>
+                            </View>
+                        ) : null
+                    }
                     ListEmptyComponent={
                         <View style={styles.emptyBox}>
                              <View style={styles.emptyIconCircle}>
@@ -192,6 +222,17 @@ const styles = StyleSheet.create({
     emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     emptyTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
     emptySub: { color: '#444', fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 22 },
+
+    historySection: { marginBottom: 30 },
+    historyTitle: { color: '#444', fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 15 },
+    historyScroll: { marginLeft: -5 },
+    historyMiniCard: { backgroundColor: '#0a0a0a', borderRightWidth: 4, borderRightColor: '#7C3AED', paddingHorizontal: 15, paddingVertical: 12, borderRadius: 15, marginRight: 12, width: 140 },
+    indicatorUrgent: { position: 'absolute', top: 5, left: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' },
+    indicatorCasual: { position: 'absolute', top: 5, left: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
+    historyReason: { color: '#fff', fontSize: 13, fontWeight: 'bold', marginBottom: 4 },
+    historyStatusDone: { color: '#444', fontSize: 9, fontWeight: '800' },
+    historyStatusActive: { color: '#ef4444', fontSize: 9, fontWeight: '900' },
+    spacer: { height: 30 },
 });
 
 export default HomeScreen;
