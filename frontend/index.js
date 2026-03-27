@@ -17,16 +17,7 @@ import { onMessageReceived } from './src/utils/notificationHandler';
 // ─── 0. Mandatory FCM Device Registration (For Data-Only Messages) ───────────
 messaging().registerDeviceForRemoteMessages().catch(() => {});
 
-// ─── 1. Mandatory Native Android Foreground Service for Wake-up ──────────────
-notifee.registerForegroundService((notification) => {
-    return new Promise(() => {
-        // Runs an unkillable native Android service to preserve the ringing state
-        console.log('[RallyRing] Native foreground service protecting call:', notification.id);
-    });
-});
-
-// ─── 2. FCM Background handler (app in background or killed) ─────────────────
-
+// ─── 1. FCM Background handler (app in background or killed) ─────────────────
 console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED');
@@ -74,7 +65,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'accepted' });
-                await notifee.stopForegroundService();
             } catch (e) { }
         } else if (actionId === 'reject') {
             try {
@@ -82,7 +72,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'rejected' });
-                await notifee.stopForegroundService();
             } catch (e) { }
             try {
                 await notifee.cancelNotification(callId);
@@ -92,7 +81,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
     if (actionId === 'reject') {
         try {
-            await notifee.stopForegroundService();
             const notifId = detail.notification ? detail.notification.id : null;
             if (notifId) {
                 await notifee.cancelNotification(notifId);

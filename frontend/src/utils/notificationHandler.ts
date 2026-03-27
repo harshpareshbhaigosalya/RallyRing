@@ -14,9 +14,8 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     if (data.type === 'CANCEL_CALL') {
         const cId = data.callId as string;
         try {
-            await notifee.stopForegroundService();
             await notifee.cancelNotification(cId);
-            console.log('[NotificationHandler] Cancelled call and natively stopped foreground service:', cId);
+            console.log('[NotificationHandler] Cancelled call safely:', cId);
         } catch (e) {
             console.error('[NotificationHandler] Error cancelling call:', e);
         }
@@ -58,7 +57,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             return;
         }
 
-        console.log('[NotificationHandler] Executing Native Foreground Service for Wake-up:', callId);
+        console.log('[NotificationHandler] Calling Display Notification Safely:', callId);
         
         await notifee.displayNotification({
             id: callId,
@@ -72,7 +71,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 category: AndroidCategory.CALL,
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
-                asForegroundService: true, // Requires strict manifest matching!
                 fullScreenAction: {
                     id: 'default', // DO NOT use launchActivity in headless task!
                 },
@@ -92,10 +90,9 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 autoCancel: false, 
                 showTimestamp: true,
                 sound: 'ringtone',
-                loopSound: true, // Continuous ring until answered
             },
         });
-        console.log('[NotificationHandler] Ringing Executed Successfully.');
+        console.log('[NotificationHandler] Notification Processed Successfully.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }
