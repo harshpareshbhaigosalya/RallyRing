@@ -2,8 +2,8 @@ const axios = require('axios');
 
 // CONFIG: Replace with your details for testing
 const API_URL = 'https://rally-ring.vercel.app';
-const GROUP_ID = 'DE1FT1'; // Enter a group ID you joined
-const CALLER_ID = '0TZ7XGRJ'; // Harsh's real User ID in the squad
+const GROUP_ID = '5M01CR'; // Enter a group ID you joined
+const CALLER_ID = 'SYSTEM_ADMIN'; // Changed from Harsh's ID so it doesn't filter out his phone! 🚀
 const GROUP_NAME = 'Temp';
 const CALLER_NAME = 'Laptop System';
 

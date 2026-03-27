@@ -13,6 +13,7 @@ import Sound from 'react-native-sound';
 
 Sound.setCategory('Playback');
 const { height, width } = Dimensions.get('window');
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const RingingScreen = ({ route, navigation }: any) => {
     const { callId, groupName, callerName, reason, priority = 'casual' } = route.params;
@@ -218,13 +219,16 @@ const RingingScreen = ({ route, navigation }: any) => {
                     {myStatus === 'pending' && !amCaller ? (
                         <View style={styles.controlsCol}>
                              <View style={styles.callControls}>
-                                <TouchableOpacity style={[styles.actionBtn, styles.declineBtn]} onPress={() => handleResponse('rejected')}>
+                                 <TouchableOpacity style={[styles.actionBtn, styles.declineBtn]} onPress={() => handleResponse('rejected')}>
                                     <PhoneOff color="#fff" size={28} />
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => handleResponse('accepted')}>
+                                <AnimatedTouchable 
+                                    style={[styles.actionBtn, styles.acceptBtn, { transform: [{ scale: pulse }] }]} 
+                                    onPress={() => handleResponse('accepted')}
+                                >
                                     <Phone color="#fff" size={32} />
-                                </TouchableOpacity>
+                                </AnimatedTouchable>
 
                                 <TouchableOpacity style={[styles.actionBtn, styles.quickBtn]} onPress={() => setShowQuickRes(true)}>
                                     <Send color="#fff" size={24} />

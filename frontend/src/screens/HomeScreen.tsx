@@ -1,18 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TouchableOpacity, 
-    Share, Alert, StatusBar, Platform, ScrollView 
+    Share, Alert, StatusBar, Platform, ScrollView, Animated,
+    Easing, Dimensions
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
 import { useStore } from '../store/useStore';
-import { Plus, Users, Share2, ChevronRight, LogOut, Phone } from 'lucide-react-native';
+import { Plus, Users, Share2, ChevronRight, LogOut, Phone, ShieldCheck, Zap } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
+
+const { height, width } = Dimensions.get('window');
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const HomeScreen = ({ navigation }: any) => {
     const { user, groups, setGroups, setUser } = useStore();
     const [stats, setStats] = useState({ online: 0, total: 0 });
     const [recentHistory, setRecentHistory] = useState<any[]>([]);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        const anima = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+            ])
+        );
+        anima.start();
+        return () => anima.stop();
+    }, []);
 
     useEffect(() => {
         if (!user || !user.uid) return;
@@ -29,7 +45,6 @@ const HomeScreen = ({ navigation }: any) => {
 
         // 2. Simple way to count "active" people in user's groups (approximate)
         // For a true "Wow" we could listen to presence of all friends, but let's keep it light.
-
 
         // 3. Global History listener
         const unsubHistory = firestore()
@@ -187,15 +202,15 @@ const HomeScreen = ({ navigation }: any) => {
                     <Text style={styles.fabText}>JOIN</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                    style={styles.mainFab} 
+                <AnimatedTouchable 
+                    style={[styles.mainFab, { transform: [{ scale: pulseAnim }] }]} 
                     onPress={() => navigation.navigate('CreateGroup')}
                 >
                     <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.fabGradient}>
                         <Plus color="#fff" size={24} />
                         <Text style={[styles.fabText, { fontWeight: 'bold' }]}>NEW SQUAD</Text>
                     </LinearGradient>
-                </TouchableOpacity>
+                </AnimatedTouchable>
             </View>
         </View>
     );

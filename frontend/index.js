@@ -16,11 +16,14 @@ import { onMessageReceived } from './src/utils/notificationHandler';
 
 // ─── 1. FCM Background handler (app in background or killed) ─────────────────
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    if (remoteMessage.data?.type === 'INCOMING_CALL') {
-        const pattern = remoteMessage.data.priority === 'urgent' ? [200, 200, 200, 200] : [500, 1000];
-        Vibration.vibrate(pattern, true);
+    console.log('Background message received', remoteMessage.data?.type);
+    try {
+        // We let Notifee handle vibration/sound via its notification channel 
+        // to avoid crashes in the headless JS environment.
+        await onMessageReceived(remoteMessage);
+    } catch (error) {
+        console.error('Error in background message processor:', error);
     }
-    await onMessageReceived(remoteMessage);
 });
 
 // ─── 2. Notifee Background event handler ──────────────────────────────────────
