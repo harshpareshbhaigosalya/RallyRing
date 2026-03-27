@@ -8,6 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import { CreateGroupScreen, JoinGroupScreen } from '../screens/GroupActions';
 import GroupDetailScreen from '../screens/GroupDetailScreen';
 import RingingScreen from '../screens/RingingScreen';
+import RallyDetailScreen from '../screens/RallyDetailScreen';
 
 import { navigationRef } from './navigationUtils';
 

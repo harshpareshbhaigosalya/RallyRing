@@ -237,7 +237,11 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                         </View>
                     ) : (
                         history.map((h, idx) => (
-                            <View key={idx} style={styles.historyCard}>
+                            <TouchableOpacity 
+                                key={idx} 
+                                style={styles.historyCard}
+                                onPress={() => navigation.navigate('RallyDetail', { callId: h.callId })}
+                            >
                                 <View style={styles.historyTop}>
                                     <View style={styles.hReasonRow}>
                                         <Text style={styles.hReason}>"{h.reason || 'Rally'}"</Text>
@@ -252,7 +256,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                     <View style={styles.hStatItem}><Text style={{ color: '#22c55e', fontWeight: 'bold' }}>✅ {Object.values(h.responses || {}).filter(v => v === 'accepted').length}</Text></View>
                                     <View style={styles.hStatItem}><Text style={{ color: '#ef4444', fontWeight: 'bold' }}>❌ {Object.values(h.responses || {}).filter(v => v === 'rejected').length}</Text></View>
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))
                     )
                 )}

@@ -166,13 +166,17 @@ const HomeScreen = ({ navigation }: any) => {
                                 <Text style={styles.historyTitle}>RECENT RALLIES</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
                                     {recentHistory.map((h, i) => (
-                                        <View key={i} style={styles.historyMiniCard}>
+                                        <TouchableOpacity 
+                                            key={i} 
+                                            style={styles.historyMiniCard}
+                                            onPress={() => navigation.navigate('RallyDetail', { callId: h.callId })}
+                                        >
                                             <View style={h.priority === 'urgent' ? styles.indicatorUrgent : styles.indicatorCasual} />
                                             <Text style={styles.historyReason} numberOfLines={1}>{h.reason.toUpperCase() || 'RALLY'}</Text>
                                             <Text style={h.status === 'ended' ? styles.historyStatusDone : styles.historyStatusActive}>
                                                 {h.status === 'ringing' ? 'LIVE NOW 📡' : 'DONE ✅'}
                                             </Text>
-                                        </View>
+                                        </TouchableOpacity>
                                     ))}
                                 </ScrollView>
                                 <View style={styles.spacer} />
