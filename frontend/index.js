@@ -14,15 +14,21 @@ import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onMessageReceived } from './src/utils/notificationHandler';
 
+// ─── 0. Mandatory FCM Device Registration (For Data-Only Messages) ───────────
+messaging().registerDeviceForRemoteMessages().catch(() => {});
+
 // ─── 1. FCM Background handler (app in background or killed) ─────────────────
+// This MUST be registered before AppRegistry.registerComponent
+console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    console.log('Background message received', remoteMessage.data?.type);
+    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED:', remoteMessage.data?.type);
     try {
-        // We let Notifee handle vibration/sound via its notification channel 
-        // to avoid crashes in the headless JS environment.
-        await onMessageReceived(remoteMessage);
+        if (remoteMessage.data) {
+            await onMessageReceived(remoteMessage);
+        }
+        return Promise.resolve();
     } catch (error) {
-        console.error('Error in background message processor:', error);
+        console.error('[RallyRing] Background handler error:', error);
     }
 });
 

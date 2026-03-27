@@ -54,20 +54,22 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
 
     // ─── 2. Display Notification ──────────────────────────────────────────────
     try {
-        console.log('[NotificationHandler] Displaying call:', callId);
+        console.log('[NotificationHandler] Starting HIGH-PRIORITY foreground service for call:', callId);
         
         await notifee.displayNotification({
             id: callId,
             title: isUrgent ? `💥 URGENT RALLY: ${callerName.toUpperCase()}` : `🚨 RALLY: ${callerName.toUpperCase()}`,
             body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
             subtitle: groupName,
-            data: { ...data, type: 'INCOMING_CALL' }, // Ensure type is passed
+            data: { ...data, type: 'INCOMING_CALL' },
             android: {
                 channelId,
                 smallIcon: 'ic_launcher',
                 category: AndroidCategory.CALL,
-                importance: AndroidImportance.HIGH,
+                importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
+                // MANDATORY for Android 14 Foreground Service
+                asForegroundService: true,
                 fullScreenAction: {
                     id: 'default',
                     launchActivity: 'com.rallyring.MainActivity',
@@ -78,16 +80,20 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
                         pressAction: { id: 'accept', launchActivity: 'com.rallyring.MainActivity' },
                     },
-                    { title: '❌ DECLINE', pressAction: { id: 'reject' } },
+                    { 
+                        title: '❌ DECLINE', 
+                        pressAction: { id: 'reject' } 
+                    },
                 ],
                 color: isUrgent ? '#ef4444' : '#7C3AED',
-                ongoing: true, // Vital for background persistence
+                ongoing: true, // Vital for persistence
                 autoCancel: false, 
                 showTimestamp: true,
                 sound: 'ringtone',
+                loopSound: true,
             },
         });
-        console.log('[NotificationHandler] Full-screen call signal sent.');
+        console.log('[NotificationHandler] Foreground Service Displayed.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }

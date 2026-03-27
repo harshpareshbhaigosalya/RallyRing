@@ -174,10 +174,6 @@ app.post('/trigger-call', async (req, res) => {
         const isUrgent = priority === 'urgent';
 
         const message = {
-            notification: {
-                title: isUrgent ? `💥 URGENT RALLY: ${callerName}` : `🚨 RALLY: ${callerName}`,
-                body: reason || `Incoming rally in ${groupName}`,
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -194,14 +190,7 @@ app.post('/trigger-call', async (req, res) => {
             tokens: tokens,
             android: {
                 priority: 'high' as const,
-                ttl: 3600000, 
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    sound: 'ringtone',
-                    priority: 'high' as const,
-                    sticky: true,
-                    visibility: 'public' as const,
-                }
+                ttl: 0,
             }
         };
 
@@ -295,10 +284,6 @@ app.post('/test-call', async (req, res) => {
         });
 
         const message = {
-            notification: {
-                title: isUrgent ? `💥 URGENT RALLY: AI Tester` : `🚨 RALLY: AI Tester`,
-                body: 'Testing the call feature background wake-up!',
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -314,14 +299,7 @@ app.post('/test-call', async (req, res) => {
             token: fcmToken,
             android: {
                 priority: 'high' as const,
-                ttl: 3600000,
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    sound: 'ringtone',
-                    priority: 'high' as const,
-                    sticky: true,
-                    visibility: 'public' as const,
-                }
+                ttl: 0,
             }
         };
 
