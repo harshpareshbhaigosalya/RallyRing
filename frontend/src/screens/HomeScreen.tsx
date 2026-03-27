@@ -111,29 +111,6 @@ const HomeScreen = ({ navigation }: any) => {
                         </TouchableOpacity>
                     </View>
 
-                    {recentHistory.find(h => h.status === 'ringing') && (
-                        <TouchableOpacity 
-                            style={styles.activeCallBanner}
-                            onPress={() => {
-                                const h = recentHistory.find(h => h.status === 'ringing');
-                                if (h) {
-                                    navigation.navigate('Ringing', {
-                                        callId: h.callId,
-                                        groupName: h.groupName,
-                                        callerName: 'Someone',
-                                        reason: h.reason,
-                                        priority: h.priority
-                                    });
-                                }
-                            }}
-                        >
-                            <View style={[styles.bannerGradient, { backgroundColor: '#ef4444' }]}>
-                                <Phone size={16} color="#fff" strokeWidth={3} />
-                                <Text style={styles.bannerText}>JOIN ONGOING RALLY</Text>
-                            </View>
-                        </TouchableOpacity>
-                    )}
-
                     <View style={styles.statsContainer}>
                         <View style={styles.statBox}>
                             <Text style={styles.statVal}>{stats.total}</Text>
