@@ -99,7 +99,7 @@ app.post('/trigger-call', async (req, res) => {
         // Members to be notified
         const actualTargets = targetUids && targetUids.length > 0 
             ? targetUids.filter((id: string) => id !== callerId) // Filter out caller from explicit targets
-            : groupData.members.filter((id: string) => id !== callerId); // Filter out caller from all members
+            : (groupData?.members || []).filter((id: string) => id !== callerId); // Filter out caller from all members
 
         const responses: any = {
             [callerId]: 'accepted' // Caller is already in
@@ -120,7 +120,7 @@ app.post('/trigger-call', async (req, res) => {
             status: 'ringing',
             responses,
             targetUids: actualTargets,
-            members: groupData.members, // Add this for global history query
+            members: groupData?.members || [], // Add this for global history query
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             timeoutAt: Date.now() + 600000 // 10 minutes auto-timeout (optional check)
         });

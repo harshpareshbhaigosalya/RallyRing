@@ -160,30 +160,7 @@ const HomeScreen = ({ navigation }: any) => {
                     data={groups}
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
-                    ListHeaderComponent={
-                        recentHistory.length > 0 ? (
-                            <View style={styles.historySection}>
-                                <Text style={styles.historyTitle}>RECENT RALLIES</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
-                                    {recentHistory.map((h, i) => (
-                                        <TouchableOpacity 
-                                            key={i} 
-                                            style={styles.historyMiniCard}
-                                            onPress={() => navigation.navigate('RallyDetail', { callId: h.callId })}
-                                        >
-                                            <View style={h.priority === 'urgent' ? styles.indicatorUrgent : styles.indicatorCasual} />
-                                            <Text style={styles.historyReason} numberOfLines={1}>{h.reason.toUpperCase() || 'RALLY'}</Text>
-                                            <Text style={h.status === 'ended' ? styles.historyStatusDone : styles.historyStatusActive}>
-                                                {h.status === 'ringing' ? 'LIVE NOW 📡' : 'DONE ✅'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                                <View style={styles.spacer} />
-                                <Text style={styles.sectionTitle}>YOUR SQUADS</Text>
-                            </View>
-                        ) : null
-                    }
+                    ListHeaderComponent={null}
                     ListEmptyComponent={
                         <View style={styles.emptyBox}>
                              <View style={styles.emptyIconCircle}>

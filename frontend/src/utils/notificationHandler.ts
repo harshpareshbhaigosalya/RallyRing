@@ -61,7 +61,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             title: isUrgent ? `💥 URGENT RALLY: ${callerName.toUpperCase()}` : `🚨 RALLY: ${callerName.toUpperCase()}`,
             body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
             subtitle: groupName,
-            data: { ...data },
+            data: { ...data, type: 'INCOMING_CALL' }, // Ensure type is passed
             android: {
                 channelId,
                 smallIcon: 'ic_launcher',
@@ -72,7 +72,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     launchActivity: 'com.rallyring.MainActivity',
                 },
                 pressAction: { id: 'default', launchActivity: 'com.rallyring.MainActivity' },
-                asForegroundService: true,
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
@@ -81,9 +80,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     { title: '❌ DECLINE', pressAction: { id: 'reject' } },
                 ],
                 color: isUrgent ? '#ef4444' : '#7C3AED',
-                ongoing: true,
-                autoCancel: false,
-                sound: 'ringtone',
             },
         });
         console.log('[NotificationHandler] Full-screen call signal sent.');

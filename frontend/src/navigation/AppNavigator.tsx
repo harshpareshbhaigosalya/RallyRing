@@ -29,6 +29,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
                         <Stack.Screen name="JoinGroup" component={JoinGroupScreen} />
                         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
+                        <Stack.Screen name="RallyDetail" component={RallyDetailScreen} />
                     </>
                 )}
                 {/*
