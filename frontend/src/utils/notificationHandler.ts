@@ -73,13 +73,20 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
                 fullScreenAction: {
-                    id: 'default', // DO NOT use launchActivity for headless task
+                    id: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
-                pressAction: { id: 'default' }, // ID only, to prevent Notifee crash
+                pressAction: { 
+                    id: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
+                },
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                        pressAction: { id: 'accept' },
+                        pressAction: { 
+                            id: 'accept',
+                            launchActivity: 'com.rallyring.MainActivity',
+                        },
                     },
                     { 
                         title: '❌ DECLINE', 
