@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import messaging from '@react-native-firebase/messaging';
 import firestore from '@react-native-firebase/firestore';
-import notifee, { EventType } from '@notifee/react-native';
+import notifee, { EventType, AndroidImportance, AndroidVisibility } from '@notifee/react-native';
 import { onMessageReceived } from './src/utils/notificationHandler';
 import { navigate } from './src/navigation/navigationUtils';
 import { useStore } from './src/store/useStore';
@@ -22,10 +22,41 @@ const App = () => {
       const authStatus = await messaging().requestPermission();
       
       // Notifee Permissions (Local notifications, Android 13+)
+    // ─── 1. Channel Initialization (Done once for speed in background) ───
+    const initChannels = async () => {
       try {
-        await notifee.requestPermission();
-      } catch (e) { }
+        await notifee.createChannel({
+          id: 'rally-ring-urgent',
+          name: 'URGENT Rally Calls',
+          importance: AndroidImportance.HIGH, 
+          sound: 'ringtone',
+          vibration: true,
+          vibrationPattern: [200, 200, 200, 200, 200],
+          lights: true,
+          lightColor: '#ef4444',
+          bypassDnd: true,
+          visibility: AndroidVisibility.PUBLIC,
+        });
+        await notifee.createChannel({
+          id: 'rally-ring-v21',
+          name: 'Squad Rally Calls',
+          importance: AndroidImportance.HIGH, 
+          sound: 'ringtone',
+          vibration: true,
+          vibrationPattern: [300, 500, 300, 500],
+          lights: true,
+          lightColor: '#7C3AED',
+          bypassDnd: true,
+          visibility: AndroidVisibility.PUBLIC,
+        });
+      } catch (e) { console.warn('Channel init error:', e); }
+    };
+    initChannels();
 
+    // ─── 2. Permissions ───────────────────────────────────────────────────
+    if (Platform.OS === 'android') {
+      notifee.requestPermission();
+    }
       if (authStatus >= 1 && user?.uid) {
         try {
           const token = await messaging().getToken();
