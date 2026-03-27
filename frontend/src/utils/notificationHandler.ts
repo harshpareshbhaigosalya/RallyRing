@@ -54,6 +54,11 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
 
     // ─── 2. Display Notification ──────────────────────────────────────────────
     try {
+        if (!callId) {
+            console.error('[NotificationHandler] Error: callId missing in incoming call payload.');
+            return;
+        }
+
         console.log('[NotificationHandler] Starting HIGH-PRIORITY foreground service for call:', callId);
         
         await notifee.displayNotification({
@@ -71,14 +76,13 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // MANDATORY for Android 14 Foreground Service
                 asForegroundService: true,
                 fullScreenAction: {
-                    id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
+                    id: 'default', // DO NOT use launchActivity, causes crash when triggered from background headless task
                 },
-                pressAction: { id: 'default', launchActivity: 'com.rallyring.MainActivity' },
+                pressAction: { id: 'default' }, // ID only, to prevent Notifee crash
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                        pressAction: { id: 'accept', launchActivity: 'com.rallyring.MainActivity' },
+                        pressAction: { id: 'accept' },
                     },
                     { 
                         title: '❌ DECLINE', 
@@ -93,7 +97,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 loopSound: true,
             },
         });
-        console.log('[NotificationHandler] Foreground Service Displayed.');
+        console.log('[NotificationHandler] Foreground Service Displayed Safely.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }

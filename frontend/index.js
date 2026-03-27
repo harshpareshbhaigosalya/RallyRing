@@ -17,19 +17,27 @@ import { onMessageReceived } from './src/utils/notificationHandler';
 // ─── 0. Mandatory FCM Device Registration (For Data-Only Messages) ───────────
 messaging().registerDeviceForRemoteMessages().catch(() => {});
 
-// ─── 1. FCM Background handler (app in background or killed) ─────────────────
-// This MUST be registered before AppRegistry.registerComponent
+// ─── 1. Mandatory Notifee Foreground Service Task ───────────────────────────
+// This prevents the app from crashing when displaying a foreground service notification.
+notifee.registerForegroundService((notification) => {
+    return new Promise(() => {
+        // This keeps the service (and the ringing) alive until manually stopped.
+        console.log('[RallyRing] Foreground Service Running for:', notification.id);
+    });
+});
+
+// ─── 2. FCM Background handler (app in background or killed) ─────────────────
 console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED:', remoteMessage.data?.type);
+    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED');
     try {
-        if (remoteMessage.data) {
+        if (remoteMessage && remoteMessage.data) {
             await onMessageReceived(remoteMessage);
         }
-        return Promise.resolve();
     } catch (error) {
         console.error('[RallyRing] Background handler error:', error);
     }
+    return Promise.resolve();
 });
 
 // ─── 2. Notifee Background event handler ──────────────────────────────────────
