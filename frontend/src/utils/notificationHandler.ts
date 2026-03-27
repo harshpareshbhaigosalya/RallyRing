@@ -66,7 +66,8 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 channelId,
                 smallIcon: 'ic_launcher',
                 category: AndroidCategory.CALL,
-                importance: AndroidImportance.HIGH, 
+                importance: AndroidImportance.HIGH,
+                visibility: AndroidVisibility.PUBLIC,
                 fullScreenAction: {
                     id: 'default',
                     launchActivity: 'com.rallyring.MainActivity',
@@ -80,6 +81,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     { title: '❌ DECLINE', pressAction: { id: 'reject' } },
                 ],
                 color: isUrgent ? '#ef4444' : '#7C3AED',
+                ongoing: true, // Vital for background persistence
+                autoCancel: false, 
+                showTimestamp: true,
+                sound: 'ringtone',
             },
         });
         console.log('[NotificationHandler] Full-screen call signal sent.');
