@@ -74,18 +74,15 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 visibility: AndroidVisibility.PUBLIC,
                 fullScreenAction: {
                     id: 'default', 
-                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 pressAction: { 
                     id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
                 },
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
                         pressAction: { 
                             id: 'accept',
-                            launchActivity: 'com.rallyring.MainActivity',
                         },
                     },
                     { 
