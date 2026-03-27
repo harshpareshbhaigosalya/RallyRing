@@ -73,7 +73,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
                 fullScreenAction: {
-                    id: 'default',
+                    id: 'default', 
                     launchActivity: 'com.rallyring.MainActivity',
                 },
                 pressAction: { 
