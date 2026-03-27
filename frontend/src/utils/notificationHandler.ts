@@ -72,13 +72,20 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
                 fullScreenAction: {
-                    id: 'default', // DO NOT use launchActivity in headless task!
+                    id: 'default', 
+                    launchActivity: 'default',
                 },
-                pressAction: { id: 'default' },
+                pressAction: { 
+                    id: 'default',
+                    launchActivity: 'default',
+                },
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                        pressAction: { id: 'accept' },
+                        pressAction: { 
+                            id: 'accept',
+                            launchActivity: 'default',
+                        },
                     },
                     { 
                         title: '❌ DECLINE', 
