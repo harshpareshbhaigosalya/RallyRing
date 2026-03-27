@@ -56,8 +56,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     try {
         console.log('[NotificationHandler] Displaying call:', callId);
         
-        // This is the core call notification configuration
-        const notificationConfig: any = {
+        await notifee.displayNotification({
             id: callId,
             title: isUrgent ? `💥 URGENT RALLY: ${callerName.toUpperCase()}` : `🚨 RALLY: ${callerName.toUpperCase()}`,
             body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
@@ -66,18 +65,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             android: {
                 channelId,
                 smallIcon: 'ic_launcher',
-                category: AndroidCategory.CALL,
                 importance: AndroidImportance.HIGH, 
-                visibility: AndroidVisibility.PUBLIC,
-                sound: 'ringtone',
-                ongoing: true,
-                autoCancel: false,
-                fullScreenAction: {
-                    id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
-                },
-                asForegroundService: true,
-                // Note: Removed foregroundServiceTypes if causing crashes on certain Android 14+ devices
                 pressAction: { id: 'default', launchActivity: 'com.rallyring.MainActivity' },
                 actions: [
                     {
@@ -87,32 +75,11 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                     { title: '❌ DECLINE', pressAction: { id: 'reject' } },
                 ],
                 color: isUrgent ? '#ef4444' : '#7C3AED',
-                colorized: true,
             },
-        };
-
-        await notifee.displayNotification(notificationConfig);
-        console.log('[NotificationHandler] Call notification successful.');
+        });
+        console.log('[NotificationHandler] Notification sent successfully.');
     } catch (e) {
-        console.error('[NotificationHandler] Primary notification FAILED:', e);
-        // Fallback: simple high-priority notification
-        try {
-            await notifee.displayNotification({
-                id: callId,
-                title: `📞 RALLY: ${callerName}`,
-                body: reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`,
-                data: { ...data },
-                android: {
-                    channelId,
-                    smallIcon: 'ic_launcher',
-                    importance: AndroidImportance.HIGH,
-                    sound: 'ringtone',
-                    pressAction: { id: 'default', launchActivity: 'com.rallyring.MainActivity' },
-                }
-            });
-        } catch (e2) {
-            console.error('[NotificationHandler] Fallback failed:', e2);
-        }
+        console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }
 }
 

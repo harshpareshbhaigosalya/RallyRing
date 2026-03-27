@@ -78,8 +78,11 @@ const RingingScreen = ({ route, navigation }: any) => {
     };
 
     useEffect(() => {
-        if (session && myStatus === 'pending' && !amCaller) startRinging();
-        else stopSound();
+        if (session && myStatus === 'pending' && !amCaller) {
+             startRinging();
+        } else {
+             stopSound();
+        }
     }, [myStatus, session, amCaller]);
 
     useEffect(() => {
