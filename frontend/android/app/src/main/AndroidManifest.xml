@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
 
     <application
       android:name=".MainApplication"
@@ -36,10 +37,13 @@
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
       </activity>
 
-
+      <!-- Native Android Foreground Service for Headless Wake-up -->
+      <service
+        android:name="app.notifee.core.ForegroundService"
+        android:foregroundServiceType="shortService|remoteMessaging"
+        android:exported="false" />
 
       <!-- Notifee: Boot receiver to restore any missed notifications -->
       <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver"

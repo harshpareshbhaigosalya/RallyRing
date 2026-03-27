@@ -3,7 +3,6 @@ import notifee, {
     AndroidImportance,
     AndroidCategory,
     AndroidVisibility,
-    AndroidForegroundServiceType,
 } from '@notifee/react-native';
 
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
@@ -15,8 +14,9 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     if (data.type === 'CANCEL_CALL') {
         const cId = data.callId as string;
         try {
+            await notifee.stopForegroundService();
             await notifee.cancelNotification(cId);
-            console.log('[NotificationHandler] Cancelled call:', cId);
+            console.log('[NotificationHandler] Cancelled call and natively stopped foreground service:', cId);
         } catch (e) {
             console.error('[NotificationHandler] Error cancelling call:', e);
         }
@@ -58,7 +58,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             return;
         }
 
-        console.log('[NotificationHandler] Starting notification for call:', callId);
+        console.log('[NotificationHandler] Executing Native Foreground Service for Wake-up:', callId);
         
         await notifee.displayNotification({
             id: callId,
@@ -72,18 +72,15 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 category: AndroidCategory.CALL,
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
+                asForegroundService: true, // Requires strict manifest matching!
                 fullScreenAction: {
-                    id: 'default', 
+                    id: 'default', // DO NOT use launchActivity in headless task!
                 },
-                pressAction: { 
-                    id: 'default',
-                },
+                pressAction: { id: 'default' },
                 actions: [
                     {
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                        pressAction: { 
-                            id: 'accept',
-                        },
+                        pressAction: { id: 'accept' },
                     },
                     { 
                         title: '❌ DECLINE', 
@@ -95,11 +92,11 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 autoCancel: false, 
                 showTimestamp: true,
                 sound: 'ringtone',
+                loopSound: true, // Continuous ring until answered
             },
         });
-        console.log('[NotificationHandler] Notification Displayed Safely.');
+        console.log('[NotificationHandler] Ringing Executed Successfully.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }
 }
-
