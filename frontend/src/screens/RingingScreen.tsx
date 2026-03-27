@@ -165,9 +165,10 @@ const RingingScreen = ({ route, navigation }: any) => {
     ];
 
     return (
-        <View style={styles.container}>
-            <LinearGradient colors={theme} style={styles.gradient}>
-                
+        <View style={[styles.container, { backgroundColor: '#0a0a0a' }]}>
+            <View style={styles.content}>
+                {/* Status Bar Spacer */}
+                <View style={{ height: 40 }} />
                 <View style={styles.header}>
                     <View style={[styles.priorityBadge, isUrgent && { backgroundColor: '#ef4444' }]}>
                         {isUrgent ? <AlertTriangle size={12} color="#fff" /> : <Users size={12} color="#94a3b8" />}
@@ -237,7 +238,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                         </TouchableOpacity>
                     )}
                 </View>
-            </LinearGradient>
+            </View>
 
             <Modal visible={showQuickRes} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
@@ -277,7 +278,7 @@ const RingingScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#020617' },
-    gradient: { flex: 1, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 24 },
+    content: { flex: 1, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 24 },
     header: { alignItems: 'center', marginBottom: 20 },
     priorityBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(99, 102, 241, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, marginBottom: 8 },
     priorityText: { color: '#fff', fontSize: 10, fontWeight: '900', marginLeft: 6, letterSpacing: 1 },
