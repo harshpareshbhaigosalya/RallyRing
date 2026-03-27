@@ -2,7 +2,7 @@ const axios = require('axios');
 
 // CONFIG: Replace with your details for testing
 const API_URL = 'https://rally-ring.vercel.app';
-const GROUP_ID = 'EJZML1'; // Enter a group ID you joined
+const GROUP_ID = '06HC4Q'; // Enter a group ID you joined
 const CALLER_ID = 'SYSTEM'; // Using 'SYSTEM' to successfully rally every member in the squad without being blocked! 🚀
 const GROUP_NAME = 'Temp';
 const CALLER_NAME = 'Laptop System';

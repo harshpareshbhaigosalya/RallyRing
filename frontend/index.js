@@ -17,16 +17,8 @@ import { onMessageReceived } from './src/utils/notificationHandler';
 // ─── 0. Mandatory FCM Device Registration (For Data-Only Messages) ───────────
 messaging().registerDeviceForRemoteMessages().catch(() => {});
 
-// ─── 1. Mandatory Notifee Foreground Service Task ───────────────────────────
-// This prevents the app from crashing when displaying a foreground service notification.
-notifee.registerForegroundService((notification) => {
-    return new Promise(() => {
-        // This keeps the service (and the ringing) alive until manually stopped.
-        console.log('[RallyRing] Foreground Service Running for:', notification.id);
-    });
-});
+// ─── 1. FCM Background handler (app in background or killed) ─────────────────
 
-// ─── 2. FCM Background handler (app in background or killed) ─────────────────
 console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED');
@@ -74,7 +66,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'accepted' });
-                await notifee.stopForegroundService();
             } catch (e) { }
         } else if (actionId === 'reject') {
             try {
@@ -82,7 +73,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
                     .collection('call_sessions')
                     .doc(callId)
                     .update({ ['responses.' + uid]: 'rejected' });
-                await notifee.stopForegroundService();
             } catch (e) { }
             try {
                 await notifee.cancelNotification(callId);
@@ -92,7 +82,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
     if (actionId === 'reject') {
         try {
-            await notifee.stopForegroundService();
             const notifId = detail.notification ? detail.notification.id : null;
             if (notifId) {
                 await notifee.cancelNotification(notifId);

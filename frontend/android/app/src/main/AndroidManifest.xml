@@ -39,11 +39,7 @@
         </intent-filter>
       </activity>
 
-      <!-- Required for Notifee's foreground service on Android 14 -->
-      <service
-        android:name="app.notifee.core.ForegroundService"
-        android:foregroundServiceType="phoneCall"
-        android:exported="false" />
+
 
       <!-- Notifee: Boot receiver to restore any missed notifications -->
       <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver"

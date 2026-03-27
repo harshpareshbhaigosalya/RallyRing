@@ -16,7 +16,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         const cId = data.callId as string;
         try {
             await notifee.cancelNotification(cId);
-            await notifee.stopForegroundService();
             console.log('[NotificationHandler] Cancelled call:', cId);
         } catch (e) {
             console.error('[NotificationHandler] Error cancelling call:', e);
@@ -59,7 +58,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
             return;
         }
 
-        console.log('[NotificationHandler] Starting HIGH-PRIORITY foreground service for call:', callId);
+        console.log('[NotificationHandler] Starting notification for call:', callId);
         
         await notifee.displayNotification({
             id: callId,
@@ -73,10 +72,8 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 category: AndroidCategory.CALL,
                 importance: AndroidImportance.HIGH, 
                 visibility: AndroidVisibility.PUBLIC,
-                // MANDATORY for Android 14 Foreground Service
-                asForegroundService: true,
                 fullScreenAction: {
-                    id: 'default', // DO NOT use launchActivity, causes crash when triggered from background headless task
+                    id: 'default', // DO NOT use launchActivity for headless task
                 },
                 pressAction: { id: 'default' }, // ID only, to prevent Notifee crash
                 actions: [
@@ -94,10 +91,9 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 autoCancel: false, 
                 showTimestamp: true,
                 sound: 'ringtone',
-                loopSound: true,
             },
         });
-        console.log('[NotificationHandler] Foreground Service Displayed Safely.');
+        console.log('[NotificationHandler] Notification Displayed Safely.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR:', e);
     }
