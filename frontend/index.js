@@ -18,12 +18,9 @@ import messaging from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
 import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onMessageReceived, registerForegroundServiceTask } from './src/utils/notificationHandler';
+import { onMessageReceived } from './src/utils/notificationHandler';
 
-// ─── 0. Register Foreground Service Task (MUST be before any notification) ───
-// This is the KEY to making calls work when the app is killed.
-// Notifee needs this registered BEFORE displayNotification with asForegroundService.
-registerForegroundServiceTask();
+// Removed FGS registration to prevent SecurityException crashes on Android 14+
 
 // ─── 1. Mandatory FCM Device Registration ───────────────────────────────────
 messaging().registerDeviceForRemoteMessages().catch(() => {});

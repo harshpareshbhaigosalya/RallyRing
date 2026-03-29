@@ -7,40 +7,6 @@ import notifee, {
 import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
 /**
- * ─── Notifee Foreground Service Task ──────────────────────────────────────────
- * This keeps the app process alive even when the app is killed.
- * Android will show a persistent notification tied to this service.
- * The service stops when the user responds (accept/reject) or call is cancelled.
- */
-export function registerForegroundServiceTask() {
-    notifee.registerForegroundService((notification) => {
-        return new Promise<void>((resolve) => {
-            // Listen for user interaction while the foreground service is running
-            const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
-                // When user presses an action on the notification
-                if (
-                    type === EventType.ACTION_PRESS ||
-                    type === EventType.DISMISSED
-                ) {
-                    // The actual response handling is done in index.js and App.tsx
-                    // Here we just stop the foreground service
-                    if (detail.notification?.id === notification.id) {
-                        unsubscribe();
-                        resolve(); // This stops the foreground service
-                    }
-                }
-            });
-
-            // Safety: auto-stop foreground service after 10 minutes (call timeout)
-            setTimeout(() => {
-                unsubscribe();
-                resolve();
-            }, 600000);
-        });
-    });
-}
-
-/**
  * ─── Main Message Handler ─────────────────────────────────────────────────────
  * Called from both foreground (onMessage) and background (setBackgroundMessageHandler).
  * When app is killed, this runs in a headless JS context.
@@ -163,67 +129,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
                 loopSound: true,    // KEY: Loop the ringtone continuously!
-
-                // ── Foreground Service ───────────────────────────────────
-                // This is the CRITICAL flag that keeps the process alive
-                // when the app is killed. Without this, Android will terminate
-                // the headless JS task after ~30 seconds.
-                asForegroundService: true,
             },
         });
         console.log('[NotificationHandler] Call notification displayed successfully.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR displaying notification:', e);
-
-        // Fallback: try without foreground service in case of any issue
-        try {
-            await notifee.displayNotification({
-                id: callId,
-                title: isUrgent
-                    ? `💥 URGENT RALLY: ${callerName.toUpperCase()}`
-                    : `🚨 RALLY: ${callerName.toUpperCase()}`,
-                body: reason
-                    ? `"${reason}" in ${groupName}`
-                    : `Incoming rally in ${groupName}`,
-                subtitle: groupName,
-                data: { ...data, type: 'INCOMING_CALL' },
-                android: {
-                    channelId,
-                    smallIcon: 'ic_launcher',
-                    category: AndroidCategory.CALL,
-                    importance: AndroidImportance.HIGH,
-                    visibility: AndroidVisibility.PUBLIC,
-                    fullScreenAction: {
-                        id: 'default',
-                        launchActivity: 'default',
-                    },
-                    pressAction: {
-                        id: 'default',
-                        launchActivity: 'default',
-                    },
-                    actions: [
-                        {
-                            title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
-                            pressAction: {
-                                id: 'accept',
-                                launchActivity: 'default',
-                            },
-                        },
-                        {
-                            title: '❌ DECLINE',
-                            pressAction: { id: 'reject' },
-                        },
-                    ],
-                    color: isUrgent ? '#ef4444' : '#7C3AED',
-                    ongoing: true,
-                    autoCancel: false,
-                    showTimestamp: true,
-                    sound: 'ringtone',
-                },
-            });
-            console.log('[NotificationHandler] Fallback notification displayed.');
-        } catch (fallbackErr) {
-            console.error('[NotificationHandler] Fallback also failed:', fallbackErr);
-        }
     }
 }
