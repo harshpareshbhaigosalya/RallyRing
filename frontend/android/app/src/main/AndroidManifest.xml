@@ -8,10 +8,13 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <!-- Allow app to disable battery optimizations for reliable background delivery -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
       android:name=".MainApplication"
@@ -40,15 +43,27 @@
         </intent-filter>
       </activity>
 
-      <!-- Native Android Foreground Service for Headless Wake-up -->
+      <!-- Notifee Foreground Service — keeps process alive for call notifications -->
+      <!-- phoneCall type allows showing full-screen call UI over lock screen -->
+      <!-- shortService is a fallback for quick operations -->
       <service
         android:name="app.notifee.core.ForegroundService"
-        android:foregroundServiceType="shortService|remoteMessaging"
+        android:foregroundServiceType="phoneCall|shortService|remoteMessaging"
         android:exported="false" />
 
       <!-- Notifee: Boot receiver to restore any missed notifications -->
       <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver"
         android:exported="false" />
+
+      <!-- Firebase Messaging Service for high-priority data messages -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="rally-ring-v21" />
+      
+      <!-- Set high priority for FCM -->
+      <meta-data
+        android:name="firebase_messaging_auto_init_enabled"
+        android:value="true" />
 
     </application>
 </manifest>

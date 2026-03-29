@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import * as admin from 'firebase-admin';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -12,7 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
     res.send('RallyRing Backend is running! 🔥');
 });
 
@@ -47,7 +47,7 @@ const generateUid = () => {
 /**
  * Register User / Get UID
  */
-app.post('/register', async (req, res) => {
+app.post('/register', async (req: Request, res: Response) => {
     try {
         const { name, fcmToken } = req.body;
         if (!name || !fcmToken) return res.status(400).send({ error: "Missing name or fcmToken" });
@@ -70,7 +70,7 @@ app.post('/register', async (req, res) => {
 /**
  * Trigger Group Call
  */
-app.post('/trigger-call', async (req, res) => {
+app.post('/trigger-call', async (req: Request, res: Response) => {
     try {
         const { groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt } = req.body;
 
@@ -191,6 +191,7 @@ app.post('/trigger-call', async (req, res) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
+                restrictedPackageName: 'com.rallyring',
             }
         };
 
@@ -212,7 +213,7 @@ app.post('/trigger-call', async (req, res) => {
 /**
  * Stop Call (Manual endpoint)
  */
-app.post('/stop-call', async (req, res) => {
+app.post('/stop-call', async (req: Request, res: Response) => {
     const { callId } = req.body;
     try {
         const doc = await db.collection('call_sessions').doc(callId).get();
@@ -237,7 +238,7 @@ app.post('/stop-call', async (req, res) => {
                     await fcm.sendEachForMulticast({
                         data: { type: 'CANCEL_CALL', callId },
                         tokens,
-                        android: { priority: 'high' }
+                        android: { priority: 'high' as const, ttl: 0, restrictedPackageName: 'com.rallyring' }
                     });
                 }
             }
@@ -252,7 +253,7 @@ app.post('/stop-call', async (req, res) => {
 /**
  * AI Tester (Manual endpoint for isolated testing)
  */
-app.post('/test-call', async (req, res) => {
+app.post('/test-call', async (req: Request, res: Response) => {
     try {
         const { targetUid, priority = 'casual' } = req.body;
         const isUrgent = priority === 'urgent';
@@ -300,6 +301,7 @@ app.post('/test-call', async (req, res) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
+                restrictedPackageName: 'com.rallyring',
             }
         };
 
@@ -312,7 +314,7 @@ app.post('/test-call', async (req, res) => {
     }
 });
 
-app.post('/update-token', async (req, res) => {
+app.post('/update-token', async (req: Request, res: Response) => {
     try {
         const { uid, fcmToken } = req.body;
         if (!uid || !fcmToken) return res.status(400).send({ error: "Missing uid or fcmToken" });

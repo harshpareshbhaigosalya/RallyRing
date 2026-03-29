@@ -114,6 +114,8 @@ const App = () => {
               .doc(callId)
               .update({ [`responses.${user?.uid || 'offline'}`]: 'accepted' });
           } catch (e) { }
+          // Stop the foreground service since user responded
+          try { await notifee.stopForegroundService(); } catch (e) { }
           navigate('Ringing', {
             callId,
             groupName: notifData.groupName,
@@ -129,6 +131,8 @@ const App = () => {
               .update({ [`responses.${user.uid}`]: 'rejected' });
             await notifee.cancelNotification(callId);
           } catch (e) { }
+          // Stop the foreground service since user responded
+          try { await notifee.stopForegroundService(); } catch (e) { }
         }
       }
 

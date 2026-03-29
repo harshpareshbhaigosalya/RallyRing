@@ -179,11 +179,12 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                     <TouchableOpacity 
                         style={styles.startCallBtn} 
                         onPress={() => setShowCallModal(true)}
+                        activeOpacity={0.8}
                     >
-                        <View style={[styles.startGradient, { backgroundColor: '#7C3AED' }]}>
+                        <LinearGradient colors={['#7C3AED', '#a855f7', '#C026D3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.startGradient}>
                             <PhoneCall color="#fff" size={24} />
                             <Text style={styles.startCallText}>START SQUAD RALLY</Text>
-                        </View>
+                        </LinearGradient>
                     </TouchableOpacity>
                 )}
             </View>
@@ -293,6 +294,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 <View style={styles.modalBlur}>
                     <View style={styles.modalBox}>
                         <Text style={styles.mTitle}>Broadcast Rally</Text>
+                        <Text style={styles.mSub}>{selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''} will be notified</Text>
                         
                         <View style={styles.priorityRow}>
                             {(['casual', 'priority', 'urgent'] as const).map((p) => (
@@ -380,8 +382,8 @@ const styles = StyleSheet.create({
     statVal: { color: '#fff', marginLeft: 6, fontWeight: 'bold', fontSize: 13 },
     joinCallBtn: { backgroundColor: '#fff', padding: 14, borderRadius: 12, alignItems: 'center' },
     joinText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
-    startCallBtn: { borderRadius: 20, overflow: 'hidden' },
-    startGradient: { padding: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    startCallBtn: { borderRadius: 20, overflow: 'hidden', elevation: 6 },
+    startGradient: { padding: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: 20 },
     startCallText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 12 },
     tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#111', marginBottom: 15 },
     tab: { paddingVertical: 12, marginRight: 25 },

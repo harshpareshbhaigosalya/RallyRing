@@ -2,25 +2,36 @@
  * @format
  * RallyRing - Entry point
  * All background/headless handlers MUST be registered here (before AppRegistry).
+ * 
+ * CRITICAL: The order of registration matters!
+ * 1. Foreground service task (must be first — Android needs this before any notification uses it)
+ * 2. FCM background handler
+ * 3. Notifee background event handler
+ * 4. App component registration
  */
 
 import 'react-native-gesture-handler';
-import { AppRegistry, Vibration } from 'react-native';
+import { AppRegistry } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
 import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onMessageReceived } from './src/utils/notificationHandler';
+import { onMessageReceived, registerForegroundServiceTask } from './src/utils/notificationHandler';
 
-// ─── 0. Mandatory FCM Device Registration (For Data-Only Messages) ───────────
+// ─── 0. Register Foreground Service Task (MUST be before any notification) ───
+// This is the KEY to making calls work when the app is killed.
+// Notifee needs this registered BEFORE displayNotification with asForegroundService.
+registerForegroundServiceTask();
+
+// ─── 1. Mandatory FCM Device Registration ───────────────────────────────────
 messaging().registerDeviceForRemoteMessages().catch(() => {});
 
-// ─── 1. FCM Background handler (app in background or killed) ─────────────────
+// ─── 2. FCM Background handler (app in background or killed) ─────────────────
 console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED');
+    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED:', JSON.stringify(remoteMessage.data));
     try {
         if (remoteMessage && remoteMessage.data) {
             await onMessageReceived(remoteMessage);
@@ -31,63 +42,76 @@ messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     return Promise.resolve();
 });
 
-// ─── 2. Notifee Background event handler ──────────────────────────────────────
+// ─── 3. Notifee Background event handler ──────────────────────────────────────
+// Handles Accept/Reject button presses when the app is in background or killed.
 notifee.onBackgroundEvent(async ({ type, detail }) => {
-    if (type !== EventType.ACTION_PRESS) {
-        return;
-    }
-
     const pressAction = detail.pressAction;
     const actionId = pressAction ? pressAction.id : null;
     const notifData = detail.notification ? detail.notification.data : {};
     const callId = notifData ? notifData.callId : null;
 
-    if (!callId) {
-        return;
-    }
+    // For ACTION_PRESS events, handle accept/reject
+    if (type === EventType.ACTION_PRESS) {
+        if (!callId) return;
 
-    // Get the user uid from AsyncStorage (persisted by zustand)
-    let uid = null;
-    try {
-        const stored = await AsyncStorage.getItem('rally-ring-storage');
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed && parsed.state && parsed.state.user) {
-                uid = parsed.state.user.uid;
+        // Get the user uid from AsyncStorage (persisted by zustand)
+        let uid = null;
+        try {
+            const stored = await AsyncStorage.getItem('rally-ring-storage');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed && parsed.state && parsed.state.user) {
+                    uid = parsed.state.user.uid;
+                }
+            }
+        } catch (e) { }
+
+        if (uid) {
+            if (actionId === 'accept' || actionId === 'default') {
+                try {
+                    await firestore()
+                        .collection('call_sessions')
+                        .doc(callId)
+                        .update({ ['responses.' + uid]: 'accepted' });
+                } catch (e) { }
+            } else if (actionId === 'reject') {
+                try {
+                    await firestore()
+                        .collection('call_sessions')
+                        .doc(callId)
+                        .update({ ['responses.' + uid]: 'rejected' });
+                } catch (e) { }
             }
         }
-    } catch (e) { }
 
-    if (uid) {
-        if (actionId === 'accept') {
-            try {
-                await firestore()
-                    .collection('call_sessions')
-                    .doc(callId)
-                    .update({ ['responses.' + uid]: 'accepted' });
-            } catch (e) { }
-        } else if (actionId === 'reject') {
-            try {
-                await firestore()
-                    .collection('call_sessions')
-                    .doc(callId)
-                    .update({ ['responses.' + uid]: 'rejected' });
-            } catch (e) { }
+        // Stop the foreground service and cancel notification on reject
+        if (actionId === 'reject') {
             try {
                 await notifee.cancelNotification(callId);
             } catch (e) { }
         }
+
+        // Stop foreground service on any action (accept or reject)
+        try {
+            await notifee.stopForegroundService();
+        } catch (e) { }
+
+        // Cancel notification on reject
+        if (actionId === 'reject') {
+            try {
+                const notifId = detail.notification ? detail.notification.id : null;
+                if (notifId) {
+                    await notifee.cancelNotification(notifId);
+                }
+            } catch (e) { }
+        }
     }
 
-    if (actionId === 'reject') {
-        try {
-            const notifId = detail.notification ? detail.notification.id : null;
-            if (notifId) {
-                await notifee.cancelNotification(notifId);
-            }
-        } catch (e) { }
+    // Handle DELIVERED event — no action needed, just acknowledge
+    if (type === EventType.DELIVERED) {
+        return;
     }
 });
 
-
+// ─── 4. Register App Component ────────────────────────────────────────────────
 AppRegistry.registerComponent(appName, () => App);
