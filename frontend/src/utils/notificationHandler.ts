@@ -2,7 +2,7 @@ import notifee, {
     AndroidImportance,
     AndroidCategory,
     AndroidVisibility,
-    EventType,
+    EventType
 } from '@notifee/react-native';
 import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
