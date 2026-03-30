@@ -49,13 +49,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         return;
     }
 
-    // ─── 1. Cancel any system-shown FCM notification ─────────────────────────
-    // Since we send notification+data, Android OS may have already shown a basic
-    // notification. Cancel it so we can show our rich Notifee notification instead.
-    try {
-        await notifee.cancelAllNotifications();
-    } catch (e) { /* ignore */ }
-
     // ─── 2. Channel Creation ──────────────────────────────────────────────────
     const channelId = isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21';
     try {

@@ -173,18 +173,12 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
 
         const isUrgent = priority === 'urgent';
 
-        // CRITICAL: Include BOTH notification AND data fields.
-        // notification → ensures Android OS shows it natively even when app is KILLED
-        // data → allows our JS handler to show custom Notifee notification with actions
+        // CRITICAL FOR VOIP CALLING: Do NOT include a "notification" block here.
+        // If a "notification" block is included, Android will handle it natively and 
+        // WILL NOT wake up our React Native headless JS task until the user clicks it!
+        // We rely purely on the "data" payload to silently wake the app and let Notifee
+        // show the full-screen ringing UI.
         const message = {
-            notification: {
-                title: isUrgent
-                    ? `💥 URGENT RALLY from ${callerName}`
-                    : `🚨 Rally from ${callerName}`,
-                body: reason
-                    ? `"${reason}" in ${groupName}`
-                    : `Incoming rally in ${groupName}`,
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -199,13 +193,6 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
             android: {
                 priority: 'high' as const,
                 ttl: 0,
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    sound: 'ringtone',
-                    priority: 'max' as const,
-                    visibility: 'public' as const,
-                    tag: 'rally-call',
-                },
             },
         };
 

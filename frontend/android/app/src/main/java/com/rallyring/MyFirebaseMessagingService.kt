@@ -4,6 +4,7 @@ import com.google.firebase.messaging.RemoteMessage
 import io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService
 
 class MyFirebaseMessagingService : ReactNativeFirebaseMessagingService() {
+
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
     }

@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Share, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Share, ActivityIndicator, Image } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
 import { 
     PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, 
     History, Calendar, ChevronRight, Users, Bell, XCircle, ArrowLeft,
-    UserMinus, Shield, Image as ImageIcon, Copy
+    UserMinus, Shield, Image as ImageIcon, Copy, Camera
 } from 'lucide-react-native';
 import notifee from '@notifee/react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 const GroupDetailScreen = ({ route, navigation }: any) => {
     const { groupId } = route.params;
@@ -133,6 +134,51 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
 
     const isAdmin = group?.admin === user?.uid;
 
+    // ── Admin: Profile Image ──────────────────────────────────────────────
+    const handlePickImage = async () => {
+        try {
+            const result = await launchImageLibrary({
+                mediaType: 'photo',
+                includeBase64: true,
+                maxWidth: 400,
+                maxHeight: 400,
+                quality: 0.5,
+            });
+
+            if (result.didCancel || !result.assets || result.assets.length === 0) return;
+
+            const base64 = result.assets[0].base64;
+            if (base64) {
+                await firestore().collection('groups').doc(groupId).update({
+                    profileImage: base64
+                });
+            }
+        } catch (e: any) {
+            Alert.alert("Error", "Could not upload image");
+        }
+    };
+
+    const handleAvatarPress = () => {
+        if (!isAdmin) return;
+        if (group?.profileImage) {
+            Alert.alert(
+                "Squad Image",
+                "Update or remove squad profile image?",
+                [
+                    { text: "Cancel" },
+                    { text: "Remove", style: 'destructive', onPress: async () => {
+                        await firestore().collection('groups').doc(groupId).update({
+                            profileImage: firestore.FieldValue.delete()
+                        });
+                    }},
+                    { text: "Change", onPress: handlePickImage }
+                ]
+            );
+        } else {
+            handlePickImage();
+        }
+    };
+
     // ── Admin: Add member by UID ──────────────────────────────────────────
     const handleAddMember = async () => {
         const uid = addMemberId.trim();
@@ -188,9 +234,24 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <ArrowLeft color="#fff" size={22} />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={handleAvatarPress} disabled={!isAdmin} style={styles.headerAvatarBox}>
+                    {group?.profileImage ? (
+                        <Image source={{ uri: `data:image/jpeg;base64,${group.profileImage}` }} style={styles.headerAvatarImg} />
+                    ) : (
+                        <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.headerAvatarImgBase}>
+                            <Users color="#fff" size={24} />
+                        </LinearGradient>
+                    )}
+                    {isAdmin && (
+                        <View style={styles.cameraIconBox}>
+                            <Camera color="#fff" size={12} />
+                        </View>
+                    )}
+                </TouchableOpacity>
+
                 <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
-                    <Text style={styles.subtitle}>{group?.members?.length} Members • ID: {groupId}</Text>
+                    <Text style={styles.subtitle}>{group?.members?.length} Members {isAdmin && `• ID: ${groupId}`}</Text>
                 </View>
                 {isAdmin && (
                     <TouchableOpacity style={styles.iconBtn} onPress={() => setShowAddMember(true)}>
@@ -474,6 +535,10 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000', paddingHorizontal: 20 },
     header: { flexDirection: 'row', alignItems: 'center', paddingTop: 55, marginBottom: 14 },
     backBtn: { backgroundColor: '#111', padding: 10, borderRadius: 14 },
+    headerAvatarBox: { width: 44, height: 44, borderRadius: 16, marginLeft: 12, elevation: 4 },
+    headerAvatarImg: { width: '100%', height: '100%', borderRadius: 16 },
+    headerAvatarImgBase: { flex:1, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+    cameraIconBox: { position: 'absolute', bottom: -5, right: -5, backgroundColor: '#111', borderRadius: 10, padding: 4, borderWidth: 1, borderColor: '#333' },
     title: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
     subtitle: { color: '#666', fontSize: 12, marginTop: 2 },
     iconBtn: { backgroundColor: '#111', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)' },

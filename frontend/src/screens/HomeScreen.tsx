@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TouchableOpacity, 
     Share, Alert, StatusBar, Platform, ScrollView, Animated,
-    Easing, Dimensions, Clipboard, ToastAndroid, TextInput, Modal
+    Easing, Dimensions, Clipboard, ToastAndroid, TextInput, Modal, Image
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
@@ -294,9 +294,13 @@ const HomeScreen = ({ navigation }: any) => {
                             >
                                 <View style={styles.cardContent}>
                                     <View style={styles.groupIconBox}>
-                                        <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
-                                            <Users color="#fff" size={20} />
-                                        </LinearGradient>
+                                        {item.profileImage ? (
+                                            <Image source={{ uri: `data:image/jpeg;base64,${item.profileImage}` }} style={{ width: '100%', height: '100%' }} />
+                                        ) : (
+                                            <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
+                                                <Users color="#fff" size={20} />
+                                            </LinearGradient>
+                                        )}
                                     </View>
                                     <View style={styles.cardText}>
                                         <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
