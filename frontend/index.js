@@ -20,6 +20,15 @@ import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onMessageReceived } from './src/utils/notificationHandler';
 
+// ─── 0. Mandatory Foreground Service Task Registration ───────────────────────
+// Required by Notifee to keep the ringing notification alive for more than 30s.
+notifee.registerForegroundService((notification) => {
+    return new Promise(() => {
+        // Keeps the light ringing even if JS task is suspended by system
+        console.log('[RallyRing] Foreground Service Task Started for:', notification.id);
+    });
+});
+
 // Removed FGS registration to prevent SecurityException crashes on Android 14+
 
 // ─── 1. Mandatory FCM Device Registration ───────────────────────────────────

@@ -122,7 +122,11 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Persistence ─────────────────────────────────────────
                 ongoing: true,
                 autoCancel: false,
+                asForegroundService: true,
+                timeoutAfter: undefined,
                 showTimestamp: true,
+                importance: AndroidImportance.HIGH,
+                priority: AndroidPriority.HIGH,
 
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
