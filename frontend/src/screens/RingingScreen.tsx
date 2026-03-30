@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
     Animated, ScrollView, Dimensions, Platform, BackHandler, Vibration, Modal,
-    PanResponder, TextInput
+    PanResponder, TextInput, Image
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import notifee from '@notifee/react-native';
@@ -205,15 +205,40 @@ const RingingScreen = ({ route, navigation }: any) => {
         { label: "Can't make it 🛑", val: "rejected" }
     ];
 
+    const [groupData, setGroupData] = useState<any>(null);
+
+    useEffect(() => {
+        if (session?.groupId) {
+            firestore().collection('groups').doc(session.groupId).get().then(doc => {
+                const data = doc.data();
+                if (data) setGroupData(data);
+            });
+        }
+    }, [session?.groupId]);
+
     return (
-        <View style={[styles.container, { backgroundColor: '#0a0a0a' }]}>
+        <View style={[styles.container, { backgroundColor: '#020617' }]}>
+            {/* ATMOSPHERIC BACKGROUND */}
+            {groupData?.profileImage ? (
+                <View style={styles.bgWrapper}>
+                    <Image 
+                        source={{ uri: `data:image/jpeg;base64,${groupData.profileImage}` }} 
+                        style={styles.bgImage}
+                        blurRadius={40}
+                    />
+                    <LinearGradient colors={['rgba(2,6,23,0.4)', '#020617']} style={StyleSheet.absoluteFillObject} />
+                </View>
+            ) : (
+                <LinearGradient colors={['#0f172a', '#020617']} style={StyleSheet.absoluteFillObject} />
+            )}
+
             <View style={styles.content}>
                 {/* Status Bar Spacer */}
                 <View style={{ height: 40 }} />
 
                 {/* Timer */}
                 <View style={styles.timerRow}>
-                    <Timer size={12} color="#555" />
+                    <Timer size={12} color="#475569" />
                     <Text style={styles.timerText}>{formatTime(elapsed)}</Text>
                     <View style={styles.counterPill}>
                         <Text style={styles.counterText}>{acceptedCount}/{totalCount} responded</Text>
@@ -226,7 +251,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                         <Text style={styles.priorityText}>{priority.toUpperCase()}</Text>
                     </View>
                     <Text style={styles.callerTitle}>{callerName}</Text>
-                    <Text style={styles.groupSub}>from {groupName}</Text>
+                    <Text style={styles.groupSub}>RALLYING {groupName}</Text>
                 </View>
 
                 <View style={styles.visualContainer}>
@@ -353,6 +378,8 @@ const RingingScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#020617' },
+    bgWrapper: { ...StyleSheet.absoluteFillObject, opacity: 0.6 },
+    bgImage: { width: '100%', height: '100%', opacity: 0.8 },
     content: { flex: 1, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingHorizontal: 24 },
     
     timerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 },

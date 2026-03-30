@@ -130,22 +130,23 @@ const HomeScreen = ({ navigation }: any) => {
 
     const activeRallies = recentHistory.filter(h => h.status === 'ringing');
 
+    const isAdminOfAny = groups.some((g: any) => g.admin === user?.uid);
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
             
-            {/* ENTIRE PAGE IS NOW SCROLLABLE */}
             <ScrollView 
                 style={{ flex: 1 }} 
                 contentContainerStyle={{ paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
             >
-                {/* Header */}
-                <LinearGradient colors={['#1e1b4b', '#0f0a2e', '#000']} style={styles.headerGradient}>
+                {/* ── NEW RADAR HEADER ── */}
+                <LinearGradient colors={['#0a0118', '#0f0a2e', '#000']} style={styles.headerGradient}>
                     <View style={styles.topRow}>
                         <View>
-                            <Text style={styles.welcomeText}>RALLYRING</Text>
+                            <Text style={styles.welcomeText}>SYSTEM STATUS: {activeRallies.length > 0 ? 'ACTIVE' : 'READY'}</Text>
                             <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Rallier'}</Text>
                         </View>
                         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -153,10 +154,30 @@ const HomeScreen = ({ navigation }: any) => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* UID Card */}
+                    {/* RADAR VISUALIZER */}
+                    <View style={styles.radarContainer}>
+                        {activeRallies.length > 0 ? (
+                            <View style={styles.radarEffect}>
+                                <Animated.View style={[styles.radarRing, { transform: [{ scale: pulseAnim }], opacity: 0.3 }]} />
+                                <Animated.View style={[styles.radarRing, { transform: [{ scale: Animated.multiply(pulseAnim, 1.2) }], opacity: 0.1 }]} />
+                                <View style={styles.activeCallIcon}>
+                                    <Zap color="#fff" size={40} fill="#7C3AED" />
+                                </View>
+                                <Text style={styles.radarTitle}>SQUAD ALERTED</Text>
+                                <Text style={styles.radarSub}>{activeRallies[0].groupName}</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.passiveRadar}>
+                                <Users color="#1a1a1a" size={100} />
+                                <Text style={styles.passiveText}>ALL QUIET ON THE FRONT</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* UID Card (Admin View or Copy ID) */}
                     <TouchableOpacity style={styles.uidCard} onPress={copyUID} activeOpacity={0.7}>
                         <View style={styles.uidLeft}>
-                            <Text style={styles.uidLabel}>YOUR ID</Text>
+                            <Text style={styles.uidLabel}>NETWORK UID</Text>
                             <Text style={styles.uidValue} numberOfLines={1}>{user?.uid || '...'}</Text>
                         </View>
                         <View style={styles.uidCopyBtn}>
@@ -167,30 +188,10 @@ const HomeScreen = ({ navigation }: any) => {
                     {batteryOptimized && (
                         <TouchableOpacity style={styles.batteryWarn} onPress={fixBattery}>
                             <AlertTriangle color="#fcd34d" size={14} />
-                            <Text style={styles.batteryText}>Reliability limited. Disable battery optimization for calls when app is closed.</Text>
+                            <Text style={styles.batteryText}>Reliability Alert: Disable battery optimization</Text>
                             <ChevronRight color="#fcd34d" size={14} />
                         </TouchableOpacity>
                     )}
-
-                    {/* Stats Row */}
-                    <View style={styles.statsRow}>
-                        <View style={styles.statBox}>
-                            <Text style={styles.statVal}>{groups.length}</Text>
-                            <Text style={styles.statLab}>SQUADS</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statBox}>
-                            <Text style={styles.statVal}>{recentHistory.length}</Text>
-                            <Text style={styles.statLab}>RALLIES</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statBox}>
-                            <Text style={[styles.statVal, activeRallies.length > 0 && { color: '#ef4444' }]}>
-                                {activeRallies.length > 0 ? 'LIVE' : '—'}
-                            </Text>
-                            <Text style={styles.statLab}>STATUS</Text>
-                        </View>
-                    </View>
                 </LinearGradient>
 
                 {/* Active Rally Banner */}
@@ -365,24 +366,25 @@ const styles = StyleSheet.create({
     userName: { color: '#fff', fontSize: 30, fontWeight: '800' },
     logoutBtn: { backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     
+    radarContainer: { height: 220, justifyContent: 'center', alignItems: 'center' },
+    radarEffect: { alignItems: 'center', justifyContent: 'center' },
+    radarRing: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#7C3AED', borderWidth: 1, borderColor: '#7C3AED' },
+    activeCallIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#7C3AED', elevation: 20 },
+    radarTitle: { color: '#ef4444', fontSize: 13, fontWeight: '900', marginTop: 25, letterSpacing: 3 },
+    radarSub: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 5 },
+    passiveRadar: { alignItems: 'center', opacity: 0.15 },
+    passiveText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 4, marginTop: 20 },
+
     uidCard: { 
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: 'rgba(124, 58, 237, 0.08)', borderRadius: 16, 
-        padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.15)'
+        backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 16, 
+        padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)'
     },
     uidLeft: { flex: 1 },
-    uidLabel: { color: '#7C3AED', fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 2 },
+    uidLabel: { color: '#444', fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 2 },
     uidValue: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
-    uidCopyBtn: { backgroundColor: 'rgba(124, 58, 237, 0.15)', padding: 10, borderRadius: 12 },
+    uidCopyBtn: { backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: 10, borderRadius: 12 },
 
-    statsRow: { 
-        flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', 
-        borderRadius: 20, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)'
-    },
-    statBox: { flex: 1, alignItems: 'center' },
-    statVal: { color: '#fff', fontSize: 20, fontWeight: '800' },
-    statLab: { color: '#444', fontSize: 9, fontWeight: '700', marginTop: 3, letterSpacing: 1.5 },
-    statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
 
     activeBanner: { marginHorizontal: 20, marginTop: 16, borderRadius: 18, overflow: 'hidden', elevation: 8 },
     bannerGradient: { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -431,7 +433,7 @@ const styles = StyleSheet.create({
     emptyTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
     emptySub: { color: '#555', fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 22 },
     
-    batteryWarn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.08)', padding: 12, borderRadius: 16, marginBottom: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.3)', gap: 10 },
+    batteryWarn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.08)', padding: 12, borderRadius: 16, marginBottom: 5, borderStyle: 'solid', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.1)', gap: 10 },
     batteryText: { flex: 1, color: '#fcd34d', fontSize: 11, fontWeight: '700' },
     
     joinBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, gap: 5 },
