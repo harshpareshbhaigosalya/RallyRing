@@ -174,10 +174,7 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
         const isUrgent = priority === 'urgent';
 
         // CRITICAL FOR VOIP CALLING: Do NOT include a "notification" block here.
-        // If a "notification" block is included, Android will handle it natively and 
-        // WILL NOT wake up our React Native headless JS task until the user clicks it!
-        // We rely purely on the "data" payload to silently wake the app and let Notifee
-        // show the full-screen ringing UI.
+        // We rely purely on the "data" payload to wake the app.
         const message = {
             data: {
                 type: 'INCOMING_CALL',
@@ -188,11 +185,13 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
                 purposeType: purposeType || 'Rally',
                 reason: reason || '',
                 priority: priority || 'casual',
+                isUrgent: isUrgent ? 'true' : 'false'
             },
             tokens: tokens,
             android: {
-                priority: 'high' as const,
-                ttl: 0,
+                priority: 'high' as const, // For Android (FCM HTTP v1)
+                ttl: 0,                   // 0 means deliver immediately
+                directBootOk: true,
             },
         };
 

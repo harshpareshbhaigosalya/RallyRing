@@ -10,6 +10,7 @@ import { useStore } from '../store/useStore';
 import { Phone, PhoneOff, Users, Clock, CheckCircle2, XCircle, AlertTriangle, Send, Timer } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Sound from 'react-native-sound';
+import { stopCall } from '../api/auth';
 
 Sound.setCategory('Playback');
 const { height, width } = Dimensions.get('window');
@@ -155,6 +156,21 @@ const RingingScreen = ({ route, navigation }: any) => {
             await notifee.cancelNotification(callId);
             await notifee.stopForegroundService();
         } catch (e) { }
+    };
+
+    const handleEndCall = async () => {
+        console.log('[RingingScreen] Ending call manually:', callId);
+        try {
+            await stopRingingAndClear();
+            if (callId) {
+                // Inform the backend to cancel for everyone
+                await stopCall(callId);
+            }
+            navigation.goBack();
+        } catch (e) {
+            console.error('[RingingScreen] Error ending call:', e);
+            navigation.goBack(); // Still go back even on error
+        }
     };
 
     const handleResponse = async (status: string) => {
@@ -332,7 +348,10 @@ const RingingScreen = ({ route, navigation }: any) => {
                             <Text style={styles.hintText}>Swipe up for quick replies</Text>
                         </View>
                     ) : (
-                        <TouchableOpacity style={styles.dismissBtn} onPress={() => navigation.goBack()}>
+                        <TouchableOpacity 
+                            style={styles.dismissBtn} 
+                            onPress={() => amCaller ? handleEndCall() : navigation.goBack()}
+                        >
                             <Text style={styles.dismissText}>{amCaller ? 'END RALLY' : 'DISMISS'}</Text>
                         </TouchableOpacity>
                     )}

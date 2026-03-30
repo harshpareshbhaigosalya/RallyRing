@@ -8,10 +8,11 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <!-- Allow app to disable battery optimizations for reliable background delivery -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
@@ -47,7 +48,8 @@
       <!-- shortService is a fallback for quick operations -->
       <service
         android:name="app.notifee.core.ForegroundService"
-        android:foregroundServiceType="shortService|remoteMessaging"
+        android:foregroundServiceType="phoneCall|shortService|remoteMessaging"
+        android:directBootAware="true"
         android:exported="false" />
 
       <!-- Notifee: Boot receiver to restore any missed notifications -->

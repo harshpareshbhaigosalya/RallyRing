@@ -53,8 +53,24 @@ const App = () => {
     };
     initChannels();
 
-    // ─── 2. Permissions ───────────────────────────────────────────────────
+    // ─── 2. Permissions & Battery Optimization check ───────────────────────
     if (Platform.OS === 'android') {
+      const isBatteryOptimized = await notifee.isBatteryOptimizationEnabled();
+      if (isBatteryOptimized) {
+        Alert.alert(
+          '🔋 Battery Restriction Detected',
+          'For 100% reliable background calls, please disable battery optimization for RallyRing.',
+          [
+            { text: 'Later', style: 'cancel' },
+            { 
+              text: 'Fix Now', 
+              onPress: async () => {
+                await notifee.openBatteryOptimizationSettings();
+              } 
+            }
+          ]
+        );
+      }
       notifee.requestPermission();
     }
       if (authStatus >= 1 && user?.uid) {

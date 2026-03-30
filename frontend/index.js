@@ -37,13 +37,16 @@ messaging().registerDeviceForRemoteMessages().catch(() => {});
 // ─── 2. FCM Background handler (app in background or killed) ─────────────────
 console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    console.log('[RallyRing] BACKGROUND/HEADLESS MSG RECEIVED:', JSON.stringify(remoteMessage.data));
+    console.log('[RallyRing] BACKGROUND MESSAGE DETECTED:', remoteMessage.data?.type);
+    
     try {
         if (remoteMessage && remoteMessage.data) {
+            // Must keep the headless task alive until onMessageReceived finishes
             await onMessageReceived(remoteMessage);
+            console.log('[RallyRing] Headless task successfully processed notification');
         }
     } catch (error) {
-        console.error('[RallyRing] Background handler error:', error);
+        console.error('[RallyRing] Headless task failed:', error);
     }
     return Promise.resolve();
 });
@@ -56,9 +59,13 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
     const notifData = detail.notification ? detail.notification.data : {};
     const callId = notifData ? notifData.callId : null;
 
-    // For ACTION_PRESS events, handle accept/reject
-    if (type === EventType.ACTION_PRESS) {
+    // For both ACTION_PRESS (button) and PRESS (notification body)
+    if (type === EventType.ACTION_PRESS || type === EventType.PRESS) {
         if (!callId) return;
+
+        // Auto-accept if they tapped the notification itself
+        const isAccept = type === EventType.PRESS || actionId === 'accept' || actionId === 'default';
+        const isReject = actionId === 'reject';
 
         // Get the user uid from AsyncStorage (persisted by zustand)
         let uid = null;
@@ -73,14 +80,14 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         } catch (e) { }
 
         if (uid) {
-            if (actionId === 'accept' || actionId === 'default') {
+            if (isAccept) {
                 try {
                     await firestore()
                         .collection('call_sessions')
                         .doc(callId)
                         .update({ ['responses.' + uid]: 'accepted' });
                 } catch (e) { }
-            } else if (actionId === 'reject') {
+            } else if (isReject) {
                 try {
                     await firestore()
                         .collection('call_sessions')
@@ -91,7 +98,7 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         }
 
         // Stop the foreground service and cancel notification on reject
-        if (actionId === 'reject') {
+        if (isReject) {
             try {
                 await notifee.cancelNotification(callId);
             } catch (e) { }
@@ -101,16 +108,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
         try {
             await notifee.stopForegroundService();
         } catch (e) { }
-
-        // Cancel notification on reject
-        if (actionId === 'reject') {
-            try {
-                const notifId = detail.notification ? detail.notification.id : null;
-                if (notifId) {
-                    await notifee.cancelNotification(notifId);
-                }
-            } catch (e) { }
-        }
     }
 
     // Handle DELIVERED event — no action needed, just acknowledge

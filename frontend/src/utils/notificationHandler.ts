@@ -25,10 +25,10 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     if (data.type === 'CANCEL_CALL') {
         const cId = data.callId as string;
         try {
-            await notifee.cancelNotification(cId);
-            // Also cancel any system-shown FCM notifications
-            await notifee.cancelAllNotifications();
-            console.log('[NotificationHandler] Cancelled call:', cId);
+            if (cId) {
+                await notifee.cancelNotification(cId);
+                console.log('[NotificationHandler] Cancelled specific call:', cId);
+            }
         } catch (e) {
             console.error('[NotificationHandler] Error cancelling call:', e);
         }
@@ -72,7 +72,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     try {
         console.log('[NotificationHandler] Displaying call notification:', callId);
 
-        await notifee.displayNotification({
+        return await notifee.displayNotification({
             id: callId,
             title: isUrgent
                 ? `💥 URGENT RALLY: ${callerName.toUpperCase()}`
@@ -125,15 +125,12 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 asForegroundService: true,
                 timeoutAfter: undefined,
                 showTimestamp: true,
-                importance: AndroidImportance.HIGH,
-                priority: AndroidPriority.HIGH,
 
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
                 loopSound: true,
             },
         });
-        console.log('[NotificationHandler] Call notification displayed successfully.');
     } catch (e) {
         console.error('[NotificationHandler] CRITICAL ERROR displaying notification:', e);
     }
