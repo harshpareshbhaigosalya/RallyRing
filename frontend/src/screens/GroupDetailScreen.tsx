@@ -5,7 +5,8 @@ import { triggerCall } from '../api/auth';
 import { useStore } from '../store/useStore';
 import { 
     PhoneCall, Trash2, UserPlus, LogOut, CheckCircle, Circle, RefreshCw, 
-    History, Calendar, ChevronRight, Users, Bell, XCircle 
+    History, Calendar, ChevronRight, Users, Bell, XCircle, ArrowLeft,
+    UserMinus, Shield, Image as ImageIcon, Copy
 } from 'lucide-react-native';
 import notifee from '@notifee/react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -25,6 +26,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, lastSeen: any }>>({});
     const [history, setHistory] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
+    const [showAddMember, setShowAddMember] = useState(false);
+    const [addMemberId, setAddMemberId] = useState('');
 
     useEffect(() => {
         const unsubGroup = firestore().collection('groups').doc(groupId).onSnapshot(doc => {
@@ -41,7 +44,6 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 }
 
                 data.members.forEach((mId: string) => {
-                    // Listen to member info + presence
                     firestore().collection('users').doc(mId).onSnapshot(uDoc => {
                         if (uDoc.exists()) {
                             const uData = uDoc.data();
@@ -55,7 +57,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 });
             }
         });
-        // ... (unsubCall and unsubHistory remain similar)
+
         const unsubCall = firestore()
             .collection('call_sessions')
             .where('groupId', '==', groupId)
@@ -126,26 +128,89 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         if (!data || data.status !== 'online') return false;
         if (!data.lastSeen) return false;
         const lastSeenMs = data.lastSeen.toMillis ? data.lastSeen.toMillis() : (data.lastSeen || 0);
-        return (Date.now() - lastSeenMs) < 90000; // Online if active in last 90s
+        return (Date.now() - lastSeenMs) < 90000;
     };
 
     const isAdmin = group?.admin === user?.uid;
+
+    // ── Admin: Add member by UID ──────────────────────────────────────────
+    const handleAddMember = async () => {
+        const uid = addMemberId.trim();
+        if (!uid) return;
+        try {
+            const userDoc = await firestore().collection('users').doc(uid).get();
+            if (!userDoc.exists()) {
+                Alert.alert("Error", "User not found. Check the ID.");
+                return;
+            }
+            if (group?.members?.includes(uid)) {
+                Alert.alert("Already Member", "This person is already in the squad.");
+                return;
+            }
+            await firestore().collection('groups').doc(groupId).update({
+                members: firestore.FieldValue.arrayUnion(uid)
+            });
+            setAddMemberId('');
+            setShowAddMember(false);
+            Alert.alert("Success", `${userDoc.data()?.name || 'User'} added to the squad! 🎉`);
+        } catch (e) {
+            Alert.alert("Error", "Could not add member.");
+        }
+    };
+
+    // ── Admin: Remove member ──────────────────────────────────────────────
+    const handleRemoveMember = (mId: string) => {
+        if (mId === user?.uid) return;
+        const name = memberData[mId] || mId;
+        Alert.alert(
+            "Remove Member",
+            `Remove ${name} from this squad?`,
+            [
+                { text: "Cancel" },
+                { text: "Remove", style: 'destructive', onPress: async () => {
+                    try {
+                        await firestore().collection('groups').doc(groupId).update({
+                            members: firestore.FieldValue.arrayRemove(mId)
+                        });
+                        setSelectedMembers(prev => prev.filter(id => id !== mId));
+                    } catch (e) {
+                        Alert.alert("Error", "Could not remove member.");
+                    }
+                }}
+            ]
+        );
+    };
 
     return (
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <ChevronRight color="#fff" size={24} style={{ transform: [{ rotate: '180deg' }] }} />
+                    <ArrowLeft color="#fff" size={22} />
                 </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 10 }}>
+                <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
-                    <Text style={styles.subtitle}>{group?.members?.length} Members • ID: {groupId.slice(0, 8)}</Text>
+                    <Text style={styles.subtitle}>{group?.members?.length} Members • ID: {groupId}</Text>
                 </View>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => Share.share({ message: `Join my RallyRing! ID: ${groupId}` })}>
-                    <UserPlus color="#7C3AED" size={22} />
-                </TouchableOpacity>
+                {isAdmin && (
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => setShowAddMember(true)}>
+                        <UserPlus color="#7C3AED" size={20} />
+                    </TouchableOpacity>
+                )}
+                {isAdmin && (
+                    <TouchableOpacity style={[styles.iconBtn, { marginLeft: 8 }]} onPress={() => Share.share({ message: `Join my RallyRing squad! ID: ${groupId}` })}>
+                        <Copy color="#7C3AED" size={18} />
+                    </TouchableOpacity>
+                )}
             </View>
+
+            {/* Admin Badge */}
+            {isAdmin && (
+                <View style={styles.adminBadge}>
+                    <Shield color="#7C3AED" size={14} />
+                    <Text style={styles.adminBadgeText}>You are the admin of this squad</Text>
+                </View>
+            )}
 
             {/* Calling Hub */}
             <View style={styles.callHub}>
@@ -198,7 +263,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.content}>
+            <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
                 {!showHistory ? (
                     <View>
                         <View style={styles.memberToolbox}>
@@ -212,6 +277,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                 key={m}
                                 style={[styles.memberCard, selectedMembers.includes(m) && styles.selectedMember]}
                                 onPress={() => handleToggleMember(m)}
+                                onLongPress={() => { if (isAdmin && m !== user?.uid) handleRemoveMember(m); }}
                                 disabled={m === user?.uid}
                             >
                                 <View style={styles.memberInfo}>
@@ -220,15 +286,28 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                         {isOnline(m) && <View style={styles.onlineDot} />}
                                     </View>
                                     <View>
-                                        <Text style={styles.memberName}>{m === user?.uid ? 'You' : (memberData[m] || '...')}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <Text style={styles.memberName}>{m === user?.uid ? 'You' : (memberData[m] || '...')}</Text>
+                                            {m === group.admin && <Shield color="#7C3AED" size={12} />}
+                                        </View>
                                         <Text style={styles.memberStatusText}>{isOnline(m) ? 'Active now' : 'Away'}</Text>
                                     </View>
                                 </View>
-                                {m === user?.uid ? <Text style={styles.meBadge}>ME</Text> : (
-                                    selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={22} /> : <Circle color="#333" size={22} />
-                                )}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    {isAdmin && m !== user?.uid && (
+                                        <TouchableOpacity onPress={() => handleRemoveMember(m)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                            <UserMinus color="#444" size={16} />
+                                        </TouchableOpacity>
+                                    )}
+                                    {m === user?.uid ? <Text style={styles.meBadge}>ME</Text> : (
+                                        selectedMembers.includes(m) ? <CheckCircle color="#7C3AED" size={22} /> : <Circle color="#333" size={22} />
+                                    )}
+                                </View>
                             </TouchableOpacity>
                         ))}
+                        {isAdmin && (
+                            <Text style={styles.longPressHint}>Tip: Long-press a member to remove them</Text>
+                        )}
                     </View>
                 ) : (
                     history.length === 0 ? (
@@ -289,7 +368,35 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 )}
             </View>
 
-            {/* Modal Update */}
+            {/* ── Add Member Modal (Admin only) ──────────────────────────── */}
+            <Modal visible={showAddMember} transparent animationType="fade">
+                <View style={styles.modalBlur}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.mTitle}>Add Member</Text>
+                        <Text style={styles.mSub}>Enter the person's User ID to add them to this squad.</Text>
+                        
+                        <TextInput
+                            style={[styles.mInput, { height: 55, textAlignVertical: 'center' }]}
+                            placeholder="Paste User ID here"
+                            placeholderTextColor="#555"
+                            value={addMemberId}
+                            onChangeText={setAddMemberId}
+                            autoCapitalize="none"
+                        />
+
+                        <View style={styles.mActions}>
+                            <TouchableOpacity style={styles.mBtnCancel} onPress={() => { setShowAddMember(false); setAddMemberId(''); }}>
+                                <Text style={styles.mBtnTxtCancel}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.mBtnConfirm} onPress={handleAddMember}>
+                                <Text style={styles.mBtnTxtConfirm}>ADD MEMBER</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ── Call Modal ─────────────────────────────────────────────── */}
             <Modal visible={showCallModal} transparent animationType="slide">
                 <View style={styles.modalBlur}>
                     <View style={styles.modalBox}>
@@ -318,7 +425,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                             <TouchableOpacity 
                                 style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
                                 onPress={() => {
-                                    const next = (scheduledAt || Date.now()) + 900000; // +15 min
+                                    const next = (scheduledAt || Date.now()) + 900000;
                                     setScheduledAt(next);
                                 }}
                             >
@@ -365,44 +472,44 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000', paddingHorizontal: 20 },
-    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, marginBottom: 20 },
-    backBtn: { backgroundColor: '#111', padding: 8, borderRadius: 12 },
-    title: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
-    subtitle: { color: '#666', fontSize: 13 },
-    iconBtn: { backgroundColor: '#111', padding: 10, borderRadius: 12 },
-    callHub: { marginBottom: 25 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 55, marginBottom: 14 },
+    backBtn: { backgroundColor: '#111', padding: 10, borderRadius: 14 },
+    title: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+    subtitle: { color: '#666', fontSize: 12, marginTop: 2 },
+    iconBtn: { backgroundColor: '#111', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)' },
+    adminBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(124,58,237,0.08)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(124,58,237,0.15)' },
+    adminBadgeText: { color: '#7C3AED', fontSize: 11, fontWeight: '700' },
+    callHub: { marginBottom: 20 },
     activeCallCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#333' },
     liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(244, 67, 54, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12 },
     blinkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#F44336', marginRight: 6 },
     liveText: { color: '#F44336', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
     activeReason: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
     callerText: { color: '#666', fontSize: 12, marginBottom: 15 },
-    statsRow: { flexDirection: 'row', marginBottom: 20 },
-    statItem: { flexDirection: 'row', alignItems: 'center', marginRight: 15, backgroundColor: '#111', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-    statVal: { color: '#fff', marginLeft: 6, fontWeight: 'bold', fontSize: 13 },
     joinCallBtn: { backgroundColor: '#fff', padding: 14, borderRadius: 12, alignItems: 'center' },
     joinText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
     startCallBtn: { borderRadius: 20, overflow: 'hidden', elevation: 6 },
     startGradient: { padding: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: 20 },
     startCallText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 12 },
-    tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#111', marginBottom: 15 },
+    tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#111', marginBottom: 10 },
     tab: { paddingVertical: 12, marginRight: 25 },
     activeTab: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
     tabLabel: { color: '#444', fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
     activeLabel: { color: '#fff' },
     content: { flex: 1 },
-    memberToolbox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    memberToolbox: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
     sectionTitle: { color: '#666', fontSize: 12 },
     selectAll: { color: '#7C3AED', fontWeight: 'bold', fontSize: 12 },
     memberCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111', padding: 15, borderRadius: 16, marginBottom: 10 },
     selectedMember: { backgroundColor: 'rgba(124, 58, 237, 0.05)', borderColor: 'rgba(124, 58, 237, 0.3)', borderWidth: 1 },
-    memberInfo: { flexDirection: 'row', alignItems: 'center' },
+    memberInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
     avatarSm: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
     avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     memberName: { color: '#fff', fontWeight: '500' },
     meBadge: { color: '#444', fontSize: 10, fontWeight: 'bold' },
     onlineDot: { position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#111' },
     memberStatusText: { color: '#444', fontSize: 11, marginTop: 2 },
+    longPressHint: { color: '#333', fontSize: 11, textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
     priorityRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
     priorityTab: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center', borderWidth: 1, borderColor: '#333' },
     priorityTabActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
@@ -412,13 +519,6 @@ const styles = StyleSheet.create({
     schedBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#1e1e1e', alignItems: 'center' },
     schedBtnActive: { backgroundColor: '#7C3AED' },
     schedBtnText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-    attendeeList: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#1d1d1d', paddingTop: 10 },
-    miniAttendee: { flexDirection: 'row', alignItems: 'center', marginRight: 12, marginBottom: 6 },
-    miniName: { fontSize: 11, fontWeight: '500' },
-    miniIcon: { fontSize: 10, marginLeft: 2 },
-    txtGreen: { color: '#4CAF50' },
-    txtRed: { color: '#F44336' },
-    txtYellow: { color: '#FFC107' },
     dangerZone: { paddingBottom: 30, paddingTop: 10 },
     dangerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15 },
     dangerTxt: { color: '#444', fontWeight: 'bold', marginLeft: 10, fontSize: 13 },

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TouchableOpacity, 
     Share, Alert, StatusBar, Platform, ScrollView, Animated,
-    Easing, Dimensions, Clipboard, ToastAndroid
+    Easing, Dimensions, Clipboard, ToastAndroid, TextInput, Modal
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
@@ -12,28 +12,21 @@ import LinearGradient from 'react-native-linear-gradient';
 import notifee from '@notifee/react-native';
 
 const { height, width } = Dimensions.get('window');
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const HomeScreen = ({ navigation }: any) => {
     const { user, groups, setGroups, setUser } = useStore();
     const [recentHistory, setRecentHistory] = useState<any[]>([]);
     const [memberNames, setMemberNames] = useState<Record<string, string>>({});
     const [batteryOptimized, setBatteryOptimized] = useState(false);
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [joinSquadId, setJoinSquadId] = useState('');
     const pulseAnim = useRef(new Animated.Value(1)).current;
-    const glowAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
                 Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-            ])
-        ).start();
-
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: false, easing: Easing.inOut(Easing.ease) }),
-                Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: false, easing: Easing.inOut(Easing.ease) }),
             ])
         ).start();
     }, []);
@@ -66,7 +59,6 @@ const HomeScreen = ({ navigation }: any) => {
                     const historyList = snap.docs.map(doc => doc.data());
                     setRecentHistory(historyList);
                     
-                    // Fetch caller names
                     const callerIds = [...new Set(historyList.map(h => h.callerId).filter(Boolean))];
                     callerIds.forEach(cid => {
                         if (!memberNames[cid]) {
@@ -82,11 +74,6 @@ const HomeScreen = ({ navigation }: any) => {
 
         return () => { unsubscribe(); unsubHistory(); };
     }, [user]);
-
-    const onShare = async (groupId: string) => {
-        try { await Share.share({ message: `Join my RallyRing squad! Code: ${groupId}` }); } 
-        catch (e) { }
-    };
 
     const copyUID = () => {
         if (user?.uid) {
@@ -104,6 +91,26 @@ const HomeScreen = ({ navigation }: any) => {
         ]);
     };
 
+    const handleJoinSquad = async () => {
+        const gId = joinSquadId.trim().toUpperCase();
+        if (!gId || !user?.uid) return;
+        try {
+            const gDoc = await firestore().collection('groups').doc(gId).get();
+            if (!gDoc.exists) {
+                Alert.alert("Error", "Squad not found. Check the ID.");
+                return;
+            }
+            await firestore().collection('groups').doc(gId).update({
+                members: firestore.FieldValue.arrayUnion(user.uid)
+            });
+            setShowJoinModal(false);
+            setJoinSquadId('');
+            Alert.alert("Success", "You joined the squad! 🎉");
+        } catch (e) {
+            Alert.alert("Error", "Could not join squad.");
+        }
+    };
+
     const getTimeAgo = (timestamp: any) => {
         if (!timestamp?.toDate) return 'Recently';
         const diff = Date.now() - timestamp.toDate().getTime();
@@ -114,60 +121,6 @@ const HomeScreen = ({ navigation }: any) => {
         if (hours < 24) return `${hours}h ago`;
         const days = Math.floor(hours / 24);
         return `${days}d ago`;
-    };
-
-    const renderItem = ({ item }: any) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
-            activeOpacity={0.7}
-        >
-            <View style={styles.cardContent}>
-                <View style={styles.groupIconBox}>
-                    <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
-                        <Users color="#fff" size={20} />
-                    </LinearGradient>
-                </View>
-                <View style={styles.cardText}>
-                    <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.memberCount}>{item.members?.length || 0} members</Text>
-                </View>
-                <TouchableOpacity onPress={() => onShare(item.id)} style={styles.shareBtn}>
-                    <Share2 color="#555" size={16} />
-                </TouchableOpacity>
-                <ChevronRight color="#333" size={18} />
-            </View>
-        </TouchableOpacity>
-    );
-
-    const joinGroup = () => {
-        Alert.prompt(
-            "Join Squad",
-            "Enter the Squad ID provided by your friend:",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Join",
-                    onPress: async (groupId: string | undefined) => {
-                        if (!groupId || !user?.uid) return;
-                        try {
-                            const gDoc = await firestore().collection('groups').doc(groupId).get();
-                            if (!gDoc.exists) {
-                                Alert.alert("Error", "Squad not found. Check the ID.");
-                                return;
-                            }
-                            await firestore().collection('groups').doc(groupId).update({
-                                members: firestore.FieldValue.arrayUnion(user.uid)
-                            });
-                            Alert.alert("Success", "You joined the squad! 🎉");
-                        } catch (e) {
-                            Alert.alert("Error", "Could not join squad.");
-                        }
-                    }
-                }
-            ],
-            "plain-text"
-        );
     };
 
     const fixBattery = async () => {
@@ -181,7 +134,14 @@ const HomeScreen = ({ navigation }: any) => {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
             
-            <View style={styles.headerContainer}>
+            {/* ENTIRE PAGE IS NOW SCROLLABLE */}
+            <ScrollView 
+                style={{ flex: 1 }} 
+                contentContainerStyle={{ paddingBottom: 100 }}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
+                {/* Header */}
                 <LinearGradient colors={['#1e1b4b', '#0f0a2e', '#000']} style={styles.headerGradient}>
                     <View style={styles.topRow}>
                         <View>
@@ -197,7 +157,7 @@ const HomeScreen = ({ navigation }: any) => {
                     <TouchableOpacity style={styles.uidCard} onPress={copyUID} activeOpacity={0.7}>
                         <View style={styles.uidLeft}>
                             <Text style={styles.uidLabel}>YOUR ID</Text>
-                            <Text style={styles.uidValue}>{user?.uid || '...'}</Text>
+                            <Text style={styles.uidValue} numberOfLines={1}>{user?.uid || '...'}</Text>
                         </View>
                         <View style={styles.uidCopyBtn}>
                             <Copy color="#7C3AED" size={14} />
@@ -207,7 +167,7 @@ const HomeScreen = ({ navigation }: any) => {
                     {batteryOptimized && (
                         <TouchableOpacity style={styles.batteryWarn} onPress={fixBattery}>
                             <AlertTriangle color="#fcd34d" size={14} />
-                            <Text style={styles.batteryText}>Reliability limited. Disable battery optimization.</Text>
+                            <Text style={styles.batteryText}>Reliability limited. Disable battery optimization for calls when app is closed.</Text>
                             <ChevronRight color="#fcd34d" size={14} />
                         </TouchableOpacity>
                     )}
@@ -232,135 +192,169 @@ const HomeScreen = ({ navigation }: any) => {
                         </View>
                     </View>
                 </LinearGradient>
-            </View>
 
-            {/* Active Rally Banner */}
-            {activeRallies.length > 0 && (
-                <TouchableOpacity 
-                    style={styles.activeBanner}
-                    onPress={() => navigation.navigate('Ringing', {
-                        callId: activeRallies[0].callId,
-                        groupName: activeRallies[0].groupName,
-                        callerName: memberNames[activeRallies[0].callerId] || 'Someone',
-                        reason: activeRallies[0].reason || '',
-                        priority: activeRallies[0].priority || 'casual',
-                    })}
-                >
-                    <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.bannerGradient}>
-                        <View style={styles.liveDot} />
-                        <Phone color="#fff" size={16} />
-                        <Text style={styles.bannerText}>
-                            ACTIVE RALLY — "{activeRallies[0].reason || 'Rally'}" in {activeRallies[0].groupName}
-                        </Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            )}
-
-            <View style={styles.body}>
-                {/* Recent History Section */}
-                {recentHistory.length > 0 && (
-                    <View style={styles.historySection}>
-                        <View style={styles.sectionHeader}>
-                            <History color="#555" size={14} />
-                            <Text style={styles.sectionTitle}>RECENT RALLIES</Text>
-                        </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
-                            {recentHistory.slice(0, 8).map((h, idx) => (
-                                <TouchableOpacity 
-                                    key={idx} 
-                                    style={[
-                                        styles.historyMiniCard,
-                                        h.status === 'ringing' && styles.historyMiniCardActive
-                                    ]}
-                                    onPress={() => navigation.navigate('RallyDetail', { callId: h.callId })}
-                                    activeOpacity={0.7}
-                                >
-                                    {h.status === 'ringing' && <View style={styles.historyLiveDot} />}
-                                    <Text style={styles.historyReason} numberOfLines={1}>
-                                        {h.reason || 'Rally'}
-                                    </Text>
-                                    <Text style={styles.historyGroup} numberOfLines={1}>
-                                        {h.groupName}
-                                    </Text>
-                                    <View style={styles.historyMeta}>
-                                        <Text style={styles.historyTime}>{getTimeAgo(h.createdAt)}</Text>
-                                        <View style={styles.historyStats}>
-                                            <Text style={styles.historyAccepted}>
-                                                ✓{Object.values(h.responses || {}).filter((v: any) => String(v).startsWith('accepted')).length}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
+                {/* Active Rally Banner */}
+                {activeRallies.length > 0 && (
+                    <TouchableOpacity 
+                        style={styles.activeBanner}
+                        onPress={() => navigation.navigate('Ringing', {
+                            callId: activeRallies[0].callId,
+                            groupName: activeRallies[0].groupName,
+                            callerName: memberNames[activeRallies[0].callerId] || 'Someone',
+                            reason: activeRallies[0].reason || '',
+                            priority: activeRallies[0].priority || 'casual',
+                        })}
+                    >
+                        <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.bannerGradient}>
+                            <View style={styles.liveDot} />
+                            <Phone color="#fff" size={16} />
+                            <Text style={styles.bannerText}>
+                                ACTIVE RALLY — "{activeRallies[0].reason || 'Rally'}" in {activeRallies[0].groupName}
+                            </Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
                 )}
 
-                {/* Squads Section */}
-                <View style={[styles.sectionHeader, { marginTop: 15 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.sectionTitle}>YOUR SQUADS</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{groups.length}</Text>
+                {/* Body content */}
+                <View style={styles.body}>
+                    {/* Recent History Section */}
+                    {recentHistory.length > 0 && (
+                        <View style={styles.historySection}>
+                            <View style={styles.sectionHeader}>
+                                <History color="#555" size={14} />
+                                <Text style={styles.sectionTitle}>RECENT RALLIES</Text>
+                            </View>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+                                {recentHistory.slice(0, 8).map((h, idx) => (
+                                    <TouchableOpacity 
+                                        key={idx} 
+                                        style={[
+                                            styles.historyMiniCard,
+                                            h.status === 'ringing' && styles.historyMiniCardActive
+                                        ]}
+                                        onPress={() => navigation.navigate('RallyDetail', { callId: h.callId })}
+                                        activeOpacity={0.7}
+                                    >
+                                        {h.status === 'ringing' && <View style={styles.historyLiveDot} />}
+                                        <Text style={styles.historyReason} numberOfLines={1}>
+                                            {h.reason || 'Rally'}
+                                        </Text>
+                                        <Text style={styles.historyGroup} numberOfLines={1}>
+                                            {h.groupName}
+                                        </Text>
+                                        <View style={styles.historyMeta}>
+                                            <Text style={styles.historyTime}>{getTimeAgo(h.createdAt)}</Text>
+                                            <View style={styles.historyStats}>
+                                                <Text style={styles.historyAccepted}>
+                                                    ✓{Object.values(h.responses || {}).filter((v: any) => String(v).startsWith('accepted')).length}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    {/* Squads Section */}
+                    <View style={[styles.sectionHeader, { marginTop: 15 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={styles.sectionTitle}>YOUR SQUADS</Text>
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{groups.length}</Text>
+                            </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity style={styles.joinBtn} onPress={() => setShowJoinModal(true)}>
+                                <UserPlus color="#7C3AED" size={18} />
+                                <Text style={styles.joinBtnText}>JOIN</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.createBtnS} onPress={() => navigation.navigate('CreateGroup')}>
+                                <Plus color="#fff" size={18} strokeWidth={3} />
+                            </TouchableOpacity>
                         </View>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity style={styles.joinBtn} onPress={joinGroup}>
-                            <UserPlus color="#7C3AED" size={18} />
-                            <Text style={styles.joinBtnText}>JOIN</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.createBtnS} onPress={() => navigation.navigate('CreateGroup')}>
-                            <Plus color="#fff" size={18} strokeWidth={3} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
 
-                <FlatList
-                    data={groups}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={{ paddingBottom: 120 }}
-                    ListEmptyComponent={
+                    {/* Squad list - rendered inline (not in FlatList) for ScrollView compatibility */}
+                    {groups.length === 0 ? (
                         <View style={styles.emptyBox}>
-                             <View style={styles.emptyIconCircle}>
+                            <View style={styles.emptyIconCircle}>
                                 <Users color="#333" size={40} />
-                             </View>
-                             <Text style={styles.emptyTitle}>No Squads Yet</Text>
-                             <Text style={styles.emptySub}>Create a squad and start rallying your friends with one tap.</Text>
+                            </View>
+                            <Text style={styles.emptyTitle}>No Squads Yet</Text>
+                            <Text style={styles.emptySub}>Create a squad and start rallying your friends with one tap.</Text>
                         </View>
-                    }
-                />
-            </View>
+                    ) : (
+                        groups.map((item: any) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={styles.card}
+                                onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.cardContent}>
+                                    <View style={styles.groupIconBox}>
+                                        <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
+                                            <Users color="#fff" size={20} />
+                                        </LinearGradient>
+                                    </View>
+                                    <View style={styles.cardText}>
+                                        <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
+                                        <Text style={styles.memberCount}>{item.members?.length || 0} members</Text>
+                                    </View>
+                                    <ChevronRight color="#333" size={18} />
+                                </View>
+                            </TouchableOpacity>
+                        ))
+                    )}
+                </View>
+            </ScrollView>
 
-            {/* Floating Action Buttons */}
-            <View style={styles.fabRow}>
+            {/* Floating Action Button */}
+            <Animated.View style={[styles.fabContainer, { transform: [{ scale: pulseAnim }] }]}>
                 <TouchableOpacity 
-                    style={styles.miniFab} 
-                    onPress={() => navigation.navigate('JoinGroup')}
-                    activeOpacity={0.8}
-                >
-                    <Users color="#fff" size={18} />
-                    <Text style={styles.fabText}>JOIN</Text>
-                </TouchableOpacity>
-
-                <AnimatedTouchable 
-                    style={[styles.mainFab, { transform: [{ scale: pulseAnim }] }]} 
                     onPress={() => navigation.navigate('CreateGroup')}
                     activeOpacity={0.8}
                 >
                     <LinearGradient colors={['#7C3AED', '#a855f7', '#C026D3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fabGradient}>
                         <Plus color="#fff" size={22} />
-                        <Text style={[styles.fabText, { fontWeight: '800' }]}>NEW SQUAD</Text>
+                        <Text style={styles.fabText}>NEW SQUAD</Text>
                     </LinearGradient>
-                </AnimatedTouchable>
-            </View>
+                </TouchableOpacity>
+            </Animated.View>
+
+            {/* Join Squad Modal */}
+            <Modal visible={showJoinModal} transparent animationType="fade">
+                <View style={styles.modalBlur}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.modalTitle}>Join Squad</Text>
+                        <Text style={styles.modalSub}>Enter the Squad ID shared by your friend</Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="e.g. A1B2C3"
+                            placeholderTextColor="#555"
+                            value={joinSquadId}
+                            onChangeText={setJoinSquadId}
+                            autoCapitalize="characters"
+                            autoFocus
+                        />
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowJoinModal(false); setJoinSquadId(''); }}>
+                                <Text style={styles.modalCancelTxt}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleJoinSquad}>
+                                <Text style={styles.modalConfirmTxt}>JOIN</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    headerContainer: {},
     headerGradient: { paddingTop: 55, paddingHorizontal: 24, paddingBottom: 24, borderBottomLeftRadius: 35, borderBottomRightRadius: 35 },
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
     welcomeText: { color: '#6366f1', fontSize: 11, fontWeight: '800', letterSpacing: 3, marginBottom: 4 },
@@ -374,7 +368,7 @@ const styles = StyleSheet.create({
     },
     uidLeft: { flex: 1 },
     uidLabel: { color: '#7C3AED', fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 2 },
-    uidValue: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+    uidValue: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
     uidCopyBtn: { backgroundColor: 'rgba(124, 58, 237, 0.15)', padding: 10, borderRadius: 12 },
 
     statsRow: { 
@@ -384,14 +378,14 @@ const styles = StyleSheet.create({
     statBox: { flex: 1, alignItems: 'center' },
     statVal: { color: '#fff', fontSize: 20, fontWeight: '800' },
     statLab: { color: '#444', fontSize: 9, fontWeight: '700', marginTop: 3, letterSpacing: 1.5 },
-    statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.05)', height: '100%' },
+    statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
 
     activeBanner: { marginHorizontal: 20, marginTop: 16, borderRadius: 18, overflow: 'hidden', elevation: 8 },
     bannerGradient: { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
     liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
     bannerText: { color: '#fff', fontWeight: '700', fontSize: 12, flex: 1 },
 
-    body: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
+    body: { paddingHorizontal: 24, paddingTop: 20 },
 
     historySection: { marginBottom: 22 },
     historyScroll: { marginHorizontal: -4 },
@@ -411,7 +405,7 @@ const styles = StyleSheet.create({
     historyStats: { flexDirection: 'row', gap: 6 },
     historyAccepted: { color: '#22c55e', fontSize: 10, fontWeight: '800' },
 
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8, justifyContent: 'space-between' },
     sectionTitle: { color: '#444', fontSize: 11, fontWeight: '800', letterSpacing: 2 },
     badge: { backgroundColor: '#7C3AED', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
     badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
@@ -423,16 +417,10 @@ const styles = StyleSheet.create({
     cardText: { flex: 1, marginLeft: 14 },
     groupName: { color: '#fff', fontSize: 17, fontWeight: '700' },
     memberCount: { color: '#555', fontSize: 12, marginTop: 2 },
-    shareBtn: { padding: 10, marginRight: 4 },
 
-    fabRow: { position: 'absolute', bottom: 28, left: 24, right: 24, flexDirection: 'row', gap: 12 },
-    miniFab: { 
-        flex: 1, height: 56, borderRadius: 18, flexDirection: 'row', alignItems: 'center', 
-        justifyContent: 'center', gap: 8, backgroundColor: '#151515', borderWidth: 1, borderColor: '#222'
-    },
-    mainFab: { flex: 2, height: 56, borderRadius: 18, overflow: 'hidden' },
-    fabGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-    fabText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+    fabContainer: { position: 'absolute', bottom: 28, right: 24, borderRadius: 18, overflow: 'hidden', elevation: 10 },
+    fabGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 16 },
+    fabText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
     emptyBox: { alignItems: 'center', marginTop: 50, paddingHorizontal: 40 },
     emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#151515' },
@@ -445,6 +433,18 @@ const styles = StyleSheet.create({
     joinBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, gap: 5 },
     joinBtnText: { color: '#7C3AED', fontSize: 11, fontWeight: '900' },
     createBtnS: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED', justifyContent: 'center', alignItems: 'center' },
+
+    // ── Modal styles ────────────────────
+    modalBlur: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 24 },
+    modalBox: { backgroundColor: '#111', borderRadius: 25, padding: 25, borderWidth: 1, borderColor: '#222' },
+    modalTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 6 },
+    modalSub: { color: '#666', fontSize: 14, marginBottom: 20 },
+    modalInput: { backgroundColor: '#1a1a1a', color: '#7C3AED', padding: 18, borderRadius: 16, fontSize: 22, fontWeight: '800', textAlign: 'center', letterSpacing: 3, marginBottom: 20, borderWidth: 1, borderColor: '#222' },
+    modalActions: { flexDirection: 'row', gap: 12 },
+    modalCancelBtn: { flex: 1, padding: 15, alignItems: 'center', borderRadius: 15 },
+    modalCancelTxt: { color: '#666', fontWeight: 'bold', fontSize: 15 },
+    modalConfirmBtn: { flex: 1.5, padding: 15, alignItems: 'center', borderRadius: 15, backgroundColor: '#7C3AED' },
+    modalConfirmTxt: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 });
 
 export default HomeScreen;

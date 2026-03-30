@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     View, Text, TextInput, TouchableOpacity, 
     StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, 
-    Dimensions 
+    Dimensions, ScrollView
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -37,14 +37,19 @@ const CreateGroupScreen = ({ navigation }: any) => {
     };
 
     return (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <ArrowLeft color="#fff" size={24} />
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.content}>
+            <ScrollView 
+                style={{ flex: 1 }} 
+                contentContainerStyle={{ paddingHorizontal: 25 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.titleArea}>
                     <View style={styles.iconBox}>
                         <LinearGradient colors={['#7C3AED', '#C026D3']} style={styles.iconGradient}>
@@ -70,11 +75,13 @@ const CreateGroupScreen = ({ navigation }: any) => {
                     <View style={styles.inputWrapper}>
                         <Text style={styles.inputLabel}>DESCRIPTION (OPTIONAL)</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                             placeholder="Reason or focus..."
                             placeholderTextColor="#444"
                             value={description}
                             onChangeText={setDescription}
+                            multiline
+                            blurOnSubmit={false}
                         />
                     </View>
 
@@ -88,7 +95,8 @@ const CreateGroupScreen = ({ navigation }: any) => {
                          </LinearGradient>
                     </TouchableOpacity>
                 </View>
-            </View>
+                <View style={{ height: 80 }} />
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 };

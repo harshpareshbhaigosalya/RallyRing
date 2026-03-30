@@ -10,6 +10,11 @@ import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
  * ─── Main Message Handler ─────────────────────────────────────────────────────
  * Called from both foreground (onMessage) and background (setBackgroundMessageHandler).
  * When app is killed, this runs in a headless JS context.
+ * 
+ * IMPORTANT: Since we now send notification+data FCM messages, Android OS will
+ * ALSO show its own notification when the app is in background/killed.
+ * We cancel that system notification first, then show our custom Notifee one
+ * with action buttons and looping ringtone.
  */
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
     console.log('[NotificationHandler] received:', JSON.stringify(message.data));
@@ -21,14 +26,12 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         const cId = data.callId as string;
         try {
             await notifee.cancelNotification(cId);
+            // Also cancel any system-shown FCM notifications
+            await notifee.cancelAllNotifications();
             console.log('[NotificationHandler] Cancelled call:', cId);
         } catch (e) {
             console.error('[NotificationHandler] Error cancelling call:', e);
         }
-        // Stop the foreground service when call is cancelled
-        try {
-            await notifee.stopForegroundService();
-        } catch (e) { }
         return;
     }
 
@@ -46,8 +49,14 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         return;
     }
 
-    // ─── 1. Channel Creation ──────────────────────────────────────────────────
-    // Create the channel every time (idempotent operation)
+    // ─── 1. Cancel any system-shown FCM notification ─────────────────────────
+    // Since we send notification+data, Android OS may have already shown a basic
+    // notification. Cancel it so we can show our rich Notifee notification instead.
+    try {
+        await notifee.cancelAllNotifications();
+    } catch (e) { /* ignore */ }
+
+    // ─── 2. Channel Creation ──────────────────────────────────────────────────
     const channelId = isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21';
     try {
         await notifee.createChannel({
@@ -66,12 +75,9 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
         console.warn('[NotificationHandler] Channel creation error:', e);
     }
 
-    // ─── 2. Display Notification with Foreground Service ──────────────────────
-    // Using asForegroundService: true makes Android keep the process alive
-    // even when the app is killed. This is the KEY to making calls work
-    // when the app is off.
+    // ─── 3. Display Custom Notifee Notification ──────────────────────────────
     try {
-        console.log('[NotificationHandler] Displaying call notification with FG service:', callId);
+        console.log('[NotificationHandler] Displaying call notification:', callId);
 
         await notifee.displayNotification({
             id: callId,
@@ -91,7 +97,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 visibility: AndroidVisibility.PUBLIC,
 
                 // ── Full-Screen Intent ──────────────────────────────────
-                // This launches the app over the lock screen like a phone call
                 fullScreenAction: {
                     id: 'default',
                     launchActivity: 'default',
@@ -122,13 +127,13 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 colorized: true,
 
                 // ── Persistence ─────────────────────────────────────────
-                ongoing: true,      // Cannot be swiped away
-                autoCancel: false,  // Stays until explicitly cancelled
+                ongoing: true,
+                autoCancel: false,
                 showTimestamp: true,
 
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
-                loopSound: true,    // KEY: Loop the ringtone continuously!
+                loopSound: true,
             },
         });
         console.log('[NotificationHandler] Call notification displayed successfully.');

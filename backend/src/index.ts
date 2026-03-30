@@ -173,7 +173,18 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
 
         const isUrgent = priority === 'urgent';
 
+        // CRITICAL: Include BOTH notification AND data fields.
+        // notification → ensures Android OS shows it natively even when app is KILLED
+        // data → allows our JS handler to show custom Notifee notification with actions
         const message = {
+            notification: {
+                title: isUrgent
+                    ? `💥 URGENT RALLY from ${callerName}`
+                    : `🚨 Rally from ${callerName}`,
+                body: reason
+                    ? `"${reason}" in ${groupName}`
+                    : `Incoming rally in ${groupName}`,
+            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -183,16 +194,19 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
                 purposeType: purposeType || 'Rally',
                 reason: reason || '',
                 priority: priority || 'casual',
-                color: isUrgent ? '#ef4444' : '#7C3AED',
-                colorized: 'true',
-                looping: 'true',
             },
             tokens: tokens,
             android: {
                 priority: 'high' as const,
                 ttl: 0,
-                restrictedPackageName: 'com.rallyring',
-            }
+                notification: {
+                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
+                    sound: 'ringtone',
+                    priority: 'max' as const,
+                    visibility: 'public' as const,
+                    tag: 'rally-call',
+                },
+            },
         };
 
         const response = await fcm.sendEachForMulticast(message);
