@@ -95,7 +95,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Full-Screen Intent ──────────────────────────────────
                 fullScreenAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
 
                 // ── Press Action ────────────────────────────────────────

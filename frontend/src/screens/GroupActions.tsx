@@ -29,9 +29,8 @@ const CreateGroupScreen = ({ navigation }: any) => {
                 createdAt: firestore.FieldValue.serverTimestamp(),
             });
             navigation.goBack();
-        } catch (e: any) {
-            console.error("Create group error:", e);
-            Alert.alert("Error", `Failed to create squad: ${e.message || "Unknown error"}`);
+        } catch (e) {
+            Alert.alert("Error", "Failed to create squad");
         } finally {
             setLoading(false);
         }

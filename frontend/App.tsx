@@ -18,63 +18,62 @@ const App = () => {
   useEffect(() => {
     // ── 1. Permission and Token registration ───────────────────────────
     const setupApp = async () => {
-      const initChannels = async () => {
-        try {
-          await notifee.createChannel({
-            id: 'rally-ring-urgent',
-            name: 'URGENT Rally Calls',
-            importance: AndroidImportance.HIGH, 
-            sound: 'ringtone',
-            vibration: true,
-            vibrationPattern: [200, 200, 200, 200, 200],
-            lights: true,
-            lightColor: '#ef4444',
-            bypassDnd: true,
-            visibility: AndroidVisibility.PUBLIC,
-          });
-          await notifee.createChannel({
-            id: 'rally-ring-v21',
-            name: 'Squad Rally Calls',
-            importance: AndroidImportance.HIGH, 
-            sound: 'ringtone',
-            vibration: true,
-            vibrationPattern: [300, 500, 300, 500],
-            lights: true,
-            lightColor: '#7C3AED',
-            bypassDnd: true,
-            visibility: AndroidVisibility.PUBLIC,
-          });
-        } catch (e) { console.warn('Channel init error:', e); }
-      };
+      // FCM Permissions
+      const authStatus = await messaging().requestPermission();
+      
+      // Notifee Permissions (Local notifications, Android 13+)
+    // ─── 1. Channel Initialization (Done once for speed in background) ───
+    const initChannels = async () => {
+      try {
+        await notifee.createChannel({
+          id: 'rally-ring-urgent',
+          name: 'URGENT Rally Calls',
+          importance: AndroidImportance.HIGH, 
+          sound: 'ringtone',
+          vibration: true,
+          vibrationPattern: [200, 200, 200, 200, 200],
+          lights: true,
+          lightColor: '#ef4444',
+          bypassDnd: true,
+          visibility: AndroidVisibility.PUBLIC,
+        });
+        await notifee.createChannel({
+          id: 'rally-ring-v21',
+          name: 'Squad Rally Calls',
+          importance: AndroidImportance.HIGH, 
+          sound: 'ringtone',
+          vibration: true,
+          vibrationPattern: [300, 500, 300, 500],
+          lights: true,
+          lightColor: '#7C3AED',
+          bypassDnd: true,
+          visibility: AndroidVisibility.PUBLIC,
+        });
+      } catch (e) { console.warn('Channel init error:', e); }
+    };
+    await initChannels();
 
-      // Parallelize heavy tasks to prevent startup hang
-      Promise.all([
-         messaging().requestPermission().catch(() => {}),
-         initChannels().catch(() => {}),
-         (async () => {
-            if (Platform.OS === 'android') {
-                const isBatteryOptimized = await notifee.isBatteryOptimizationEnabled();
-                if (isBatteryOptimized) {
-                    Alert.alert(
-                        '🔋 Battery Restriction Detected',
-                        'For 100% reliable background calls, please disable battery optimization for RallyRing.',
-                        [
-                            { text: 'Later', style: 'cancel' },
-                            { 
-                                text: 'Fix Now', 
-                                onPress: async () => {
-                                    await notifee.openBatteryOptimizationSettings();
-                                } 
-                            }
-                        ]
-                    );
-                }
-                notifee.requestPermission().catch(() => {});
+    // ─── 2. Permissions & Battery Optimization check ───────────────────────
+    if (Platform.OS === 'android') {
+      const isBatteryOptimized = await notifee.isBatteryOptimizationEnabled();
+      if (isBatteryOptimized) {
+        Alert.alert(
+          '🔋 Battery Restriction Detected',
+          'For 100% reliable background calls, please disable battery optimization for RallyRing.',
+          [
+            { text: 'Later', style: 'cancel' },
+            { 
+              text: 'Fix Now', 
+              onPress: async () => {
+                await notifee.openBatteryOptimizationSettings();
+              } 
             }
-         })()
-      ]);
-
-      if (user?.uid) {
+          ]
+        );
+      }
+      notifee.requestPermission();
+    }
+      if (authStatus >= 1 && user?.uid) {
         try {
           const token = await messaging().getToken();
           await updateToken(user.uid, token);
