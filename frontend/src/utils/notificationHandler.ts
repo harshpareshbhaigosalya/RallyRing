@@ -92,13 +92,13 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Full-Screen Intent ──────────────────────────────────
                 fullScreenAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
 
                 // ── Press Action ────────────────────────────────────────
                 pressAction: {
                     id: 'default',
-                    launchActivity: 'default',
+                    launchActivity: 'com.rallyring.MainActivity',
                 },
 
                 // ── Action Buttons ──────────────────────────────────────
@@ -107,7 +107,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                         title: isUrgent ? '💥 ACCEPT NOW' : '✅ ACCEPT',
                         pressAction: {
                             id: 'accept',
-                            launchActivity: 'default',
+                            launchActivity: 'com.rallyring.MainActivity',
                         },
                     },
                     {

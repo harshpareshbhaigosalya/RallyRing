@@ -35,10 +35,15 @@ notifee.registerForegroundService((notification) => {
 messaging().registerDeviceForRemoteMessages().catch(() => {});
 
 // ─── 2. FCM Background handler (app in background or killed) ─────────────────
-console.log('[RallyRing] Global Background Handler Registered');
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     console.log('[RallyRing] BACKGROUND MESSAGE DETECTED:', remoteMessage.data?.type);
     
+    // Explicit vibration trigger for high-visibility wake-up
+    try {
+        const { Vibration } = require('react-native');
+        Vibration.vibrate([0, 500, 200, 500], true); 
+    } catch (e) {}
+
     try {
         if (remoteMessage && remoteMessage.data) {
             // Must keep the headless task alive until onMessageReceived finishes

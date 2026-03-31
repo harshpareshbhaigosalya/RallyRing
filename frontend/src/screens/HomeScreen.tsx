@@ -111,6 +111,33 @@ const HomeScreen = ({ navigation }: any) => {
         }
     };
 
+    const checkBattery = async () => {
+        if (Platform.OS === 'android') {
+            const optimized = await notifee.isBatteryOptimizationEnabled();
+            setBatteryOptimized(optimized);
+        }
+    };
+
+    const handleBatterySettings = async () => {
+        if (Platform.OS === 'android') {
+            await notifee.openBatteryOptimizationSettings();
+            setTimeout(checkBattery, 2000);
+        }
+    };
+
+    const handleOverlaySettings = async () => {
+        if (Platform.OS === 'android') {
+            Alert.alert(
+                "Critical Setup",
+                "To see calls while your phone is locked, please enable 'Display over other apps' for RallyRing in the next screen.",
+                [{ text: "Open Settings", onPress: () => {
+                    const { Linking } = require('react-native');
+                    Linking.openSettings();
+                }}]
+            );
+        }
+    };
+
     const getTimeAgo = (timestamp: any) => {
         if (!timestamp?.toDate) return 'Recently';
         const diff = Date.now() - timestamp.toDate().getTime();
