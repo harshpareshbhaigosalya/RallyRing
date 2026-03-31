@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StatusBar, Platform, Alert } from 'react-native';
+import { StatusBar, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import messaging from '@react-native-firebase/messaging';
@@ -51,7 +51,7 @@ const App = () => {
         });
       } catch (e) { console.warn('Channel init error:', e); }
     };
-    await initChannels();
+    initChannels();
 
     // ─── 2. Permissions & Battery Optimization check ───────────────────────
     if (Platform.OS === 'android') {

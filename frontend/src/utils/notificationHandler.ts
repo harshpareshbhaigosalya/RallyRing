@@ -17,12 +17,9 @@ import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
  * with action buttons and looping ringtone.
  */
 export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMessage) {
-    if (!message || !message.data) {
-        console.log('[NotificationHandler] Received empty or invalid message payload');
-        return;
-    }
     console.log('[NotificationHandler] received:', JSON.stringify(message.data));
     const data = message.data;
+    if (!data) return;
 
     // ─── CANCEL: Stop ringing ────────────────────────────────────────────────
     if (data.type === 'CANCEL_CALL') {
@@ -95,7 +92,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Full-Screen Intent ──────────────────────────────────
                 fullScreenAction: {
                     id: 'default',
-                    launchActivity: 'com.rallyring.MainActivity',
+                    launchActivity: 'default',
                 },
 
                 // ── Press Action ────────────────────────────────────────
@@ -131,6 +128,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
 
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
+                loopSound: true,
             },
         });
     } catch (e) {

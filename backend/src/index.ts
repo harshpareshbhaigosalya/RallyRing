@@ -176,10 +176,6 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
         // CRITICAL FOR VOIP CALLING: Do NOT include a "notification" block here.
         // We rely purely on the "data" payload to wake the app.
         const message = {
-            notification: {
-                title: isUrgent ? `URGENT: ${callerName} is rallying!` : `${callerName} is rallying!`,
-                body: groupName
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -196,11 +192,6 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
                 priority: 'high' as const, // For Android (FCM HTTP v1)
                 ttl: 0,                   // 0 means deliver immediately
                 directBootOk: true,
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    visibility: 'public' as const,
-                    priority: 'max' as const,
-                }
             },
         };
 
@@ -245,7 +236,6 @@ app.post('/stop-call', async (req: Request, res: Response) => {
 
                 if (tokens.length > 0) {
                     await fcm.sendEachForMulticast({
-                        notification: { title: 'Call ended', body: '' },
                         data: { type: 'CANCEL_CALL', callId },
                         tokens,
                         android: { priority: 'high' as const, ttl: 0, restrictedPackageName: 'com.rallyring' }
@@ -295,10 +285,6 @@ app.post('/test-call', async (req: Request, res: Response) => {
         });
 
         const message = {
-            notification: {
-                title: isUrgent ? `URGENT: Auto AI Tester is rallying!` : `Auto AI Tester is rallying!`,
-                body: 'Rally Testing Room'
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -316,11 +302,6 @@ app.post('/test-call', async (req: Request, res: Response) => {
                 priority: 'high' as const,
                 ttl: 0,
                 restrictedPackageName: 'com.rallyring',
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    visibility: 'public' as const,
-                    priority: 'max' as const,
-                }
             }
         };
 

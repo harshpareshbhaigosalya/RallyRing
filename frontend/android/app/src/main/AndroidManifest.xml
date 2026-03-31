@@ -15,7 +15,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Allow app to disable battery optimizations for reliable background delivery -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
-    <uses-permission android:name="android.permission.MANAGE_OVERLAY_PERMISSION" />
 
     <application
       android:name=".MainApplication"
@@ -48,20 +47,14 @@
       <!-- phoneCall type allows showing full-screen call UI over lock screen -->
       <!-- shortService is a fallback for quick operations -->
       <service
-        android:name="io.invertase.notifee.NotifeeForegroundService"
+        android:name="app.notifee.core.ForegroundService"
         android:foregroundServiceType="phoneCall|shortService|remoteMessaging"
         android:directBootAware="true"
         android:exported="false" />
 
-      <!-- Correct Notifee Receiver for v9+ -->
-      <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver" android:exported="false">
-          <intent-filter>
-              <action android:name="app.notifee.NOTIFICATION_DELETED" />
-              <action android:name="app.notifee.ACTION_PRESS" />
-              <action android:name="android.intent.action.BOOT_COMPLETED" />
-              <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-          </intent-filter>
-      </receiver>
+      <!-- Notifee: Boot receiver to restore any missed notifications -->
+      <receiver android:name="io.invertase.notifee.NotifeeNotificationReceiver"
+        android:exported="false" />
 
       <!-- Custom wrapper to bypass Xiaomi/Oppo battery optimization push blocks -->
       <service
