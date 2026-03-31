@@ -23,8 +23,9 @@ import { onMessageReceived } from './src/utils/notificationHandler';
 // ─── 0. Mandatory Foreground Service Task Registration ───────────────────────
 // Required by Notifee to keep the ringing notification alive for more than 30s.
 notifee.registerForegroundService((notification) => {
-    return new Promise(() => {
-        // Keeps the light ringing even if JS task is suspended by system
+    return new Promise((resolve) => {
+        // Safety net: stop the service after 10 minutes if not already stopped manually
+        setTimeout(resolve, 10 * 60 * 1000);
         console.log('[RallyRing] Foreground Service Task Started for:', notification.id);
     });
 });

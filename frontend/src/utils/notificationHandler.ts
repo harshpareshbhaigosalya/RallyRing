@@ -128,7 +128,6 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
 
                 // ── Sound ───────────────────────────────────────────────
                 sound: 'ringtone',
-                loopSound: true,
             },
         });
     } catch (e) {
