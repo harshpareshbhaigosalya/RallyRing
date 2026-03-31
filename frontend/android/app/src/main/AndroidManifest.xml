@@ -53,13 +53,6 @@
         android:directBootAware="true"
         android:exported="false" />
 
-      <!-- Correct Notifee Event Subscriber for v9+ -->
-      <receiver android:name="app.notifee.core.NotifeeEventSubscriber" android:exported="false">
-          <intent-filter>
-              <action android:name="app.notifee.NOTIFICATION_DELETED" />
-              <action android:name="app.notifee.ACTION_PRESS" />
-          </intent-filter>
-      </receiver>
 
       <!-- Custom wrapper to bypass Xiaomi/Oppo battery optimization push blocks -->
       <service

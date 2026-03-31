@@ -51,7 +51,7 @@ const App = () => {
         });
       } catch (e) { console.warn('Channel init error:', e); }
     };
-    initChannels();
+    await initChannels();
 
     // ─── 2. Permissions & Battery Optimization check ───────────────────────
     if (Platform.OS === 'android') {
