@@ -225,12 +225,27 @@ const RingingScreen = ({ route, navigation }: any) => {
     const acceptedCount = Object.values(session?.responses || {}).filter((s: any) => String(s).startsWith('accepted')).length;
     const totalCount = Object.keys(session?.responses || {}).length;
 
-    const quickOps = [
+    let pollOptionsRaw = session?.pollOptions || route.params.pollOptions || null;
+    let parsedOptions: string[] = [];
+    if (pollOptionsRaw) {
+        if (Array.isArray(pollOptionsRaw)) parsedOptions = pollOptionsRaw;
+        else if (typeof pollOptionsRaw === 'string') {
+            try { parsedOptions = JSON.parse(pollOptionsRaw); } catch(e) {}
+        }
+    }
+
+    let quickOps = [
         { label: "In 5 mins! 🏃", val: "accepted:5min" },
         { label: "Busy, 15 min ⏳", val: "accepted:15min" },
         { label: "On my way! 🚗", val: "accepted:way" },
         { label: "Can't make it 🛑", val: "rejected" }
     ];
+
+    if (parsedOptions.length > 0) {
+        quickOps = parsedOptions.map(opt => ({ label: opt, val: `accepted:${opt}` }));
+        // Add a reject option for polls too
+        quickOps.push({ label: "Skip / None of these 🛑", val: "rejected" });
+    }
 
     const [groupData, setGroupData] = useState<any>(null);
 
@@ -356,7 +371,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                                     <Send color="#fff" size={22} />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.hintText}>Swipe up for quick replies</Text>
+                            <Text style={styles.hintText}>{parsedOptions.length > 0 ? "Swipe up to VOTE! 👆" : "Swipe up for quick replies"}</Text>
                         </View>
                     ) : (
                         <TouchableOpacity 
@@ -374,7 +389,7 @@ const RingingScreen = ({ route, navigation }: any) => {
                     <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowQuickRes(false)} />
                     <View style={styles.quickModal}>
                         <View style={styles.modalHandle} />
-                        <Text style={styles.modalTitle}>Quick Response</Text>
+                        <Text style={styles.modalTitle}>{parsedOptions.length > 0 ? "Cast Your Vote" : "Quick Response"}</Text>
                         <View style={styles.quickGrid}>
                             {quickOps.map((op, i) => (
                                 <TouchableOpacity key={i} style={styles.quickOpItem} onPress={() => handleResponse(op.val)} activeOpacity={0.7}>

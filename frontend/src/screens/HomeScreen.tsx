@@ -7,7 +7,7 @@ import {
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
 import { useStore } from '../store/useStore';
-import { Plus, Users, Share2, ChevronRight, LogOut, Phone, Copy, Zap, Clock, History, UserPlus, AlertTriangle } from 'lucide-react-native';
+import { Plus, Users, Share2, ChevronRight, LogOut, Phone, Copy, Zap, Clock, History, UserPlus, AlertTriangle, Settings as SettingsIcon } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import notifee from '@notifee/react-native';
 
@@ -176,9 +176,14 @@ const HomeScreen = ({ navigation }: any) => {
                             <Text style={styles.welcomeText}>SYSTEM STATUS: {activeRallies.length > 0 ? 'ACTIVE' : 'READY'}</Text>
                             <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Rallier'}</Text>
                         </View>
-                        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                            <LogOut color="#666" size={18} />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.navigate('Settings')}>
+                                <SettingsIcon color="#666" size={18} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+                                <LogOut color="#666" size={18} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* RADAR VISUALIZER */}

@@ -26,11 +26,12 @@ export const triggerCall = async (
     targetUids: string[] = [], 
     reason: string = '',
     priority: string = 'casual',
-    scheduledAt: number | null = null
+    scheduledAt: number | null = null,
+    pollOptions?: string[]
 ) => {
     try {
         const response = await axios.post(`${API_URL}/trigger-call`, { 
-            groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt 
+            groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt, pollOptions 
         });
         return response.data;
     } catch (error: any) {

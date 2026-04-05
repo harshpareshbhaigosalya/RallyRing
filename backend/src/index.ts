@@ -72,7 +72,7 @@ app.post('/register', async (req: Request, res: Response) => {
  */
 app.post('/trigger-call', async (req: Request, res: Response) => {
     try {
-        const { groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt } = req.body;
+        const { groupId, callerId, groupName, purposeType, targetUids, reason, priority, scheduledAt, pollOptions } = req.body;
 
         // 1. Verify group and caller membership
         const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -117,6 +117,7 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
             reason: reason || '',
             priority: priority || 'casual',
             scheduledAt: scheduledAt || null,
+            pollOptions: pollOptions || null,
             status: 'ringing',
             responses,
             targetUids: actualTargets,
@@ -173,29 +174,34 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
 
         const isUrgent = priority === 'urgent';
 
-        // CRITICAL FOR VOIP CALLING: Do NOT include a "notification" block here.
-        // We rely purely on the "data" payload to wake the app.
-        const message = {
-            data: {
-                type: 'INCOMING_CALL',
-                callId,
-                groupId,
-                groupName,
-                callerName,
-                purposeType: purposeType || 'Rally',
-                reason: reason || '',
-                priority: priority || 'casual',
-                isUrgent: isUrgent ? 'true' : 'false'
-            },
-            tokens: tokens,
-            android: {
-                priority: 'high' as const, // For Android (FCM HTTP v1)
-                ttl: 0,                   // 0 means deliver immediately
-                directBootOk: true,
-            },
-        };
+        // 5. Build individual messages to respect personalized ringtone preferences
+        const messages = userDocs.map(doc => {
+            const data = doc.data();
+            if (!data.fcmToken) return null;
+            return {
+                data: {
+                    type: 'INCOMING_CALL',
+                    callId,
+                    groupId,
+                    groupName,
+                    callerName,
+                    purposeType: purposeType || 'Rally',
+                    reason: reason || '',
+                    priority: priority || 'casual',
+                    isUrgent: isUrgent ? 'true' : 'false',
+                    ringtonePref: data.ringtone || 'ringtone',
+                    pollOptions: pollOptions ? JSON.stringify(pollOptions) : ''
+                },
+                token: data.fcmToken,
+                android: {
+                    priority: 'high' as const, // For Android (FCM HTTP v1)
+                    ttl: 0,                   // 0 means deliver immediately
+                    directBootOk: true,
+                },
+            };
+        }).filter(Boolean);
 
-        const response = await fcm.sendEachForMulticast(message);
+        const response = await fcm.sendEach(messages as any);
         console.log(`[trigger-call] Sent to ${response.successCount}/${tokens.length} members by ${callerName}`);
 
         res.status(200).send({

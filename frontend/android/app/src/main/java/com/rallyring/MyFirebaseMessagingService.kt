@@ -40,17 +40,20 @@ class MyFirebaseMessagingService : ReactNativeFirebaseMessagingService() {
         val groupName = data["groupName"] ?: "Squad"
         val priority = data["priority"] ?: "casual"
         val isUrgent = priority == "urgent"
+        val ringtonePref = data["ringtonePref"] ?: "ringtone"
 
-        val channelIdOriginal = if (isUrgent) "rally-ring-urgent" else "rally-ring-v21"
-        val channelId = channelIdOriginal
+        val channelId = if (isUrgent) "rally-ring-urgent-$ringtonePref-v1" else "rally-ring-casual-$ringtonePref-v1"
         
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelName = if (isUrgent) "URGENT Rally Calls" else "Squad Rally Calls"
+            val channelName = if (isUrgent) "URGENT Rally Calls ($ringtonePref)" else "Squad Rally Calls ($ringtonePref)"
             val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
             
-            val soundUri = Uri.parse("android.resource://$packageName/raw/ringtone")
+            val resId = resources.getIdentifier(ringtonePref, "raw", packageName)
+            val finalResId = if (resId != 0) resId else R.raw.ringtone
+            val soundUri = Uri.parse("android.resource://$packageName/$finalResId")
+            
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)

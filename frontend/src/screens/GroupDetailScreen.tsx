@@ -22,6 +22,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
     const [showCallModal, setShowCallModal] = useState(false);
     const [callReason, setCallReason] = useState('');
+    const [isPollRally, setIsPollRally] = useState(false);
+    const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
     const [priority, setPriority] = useState<'casual' | 'priority' | 'urgent'>('casual');
     const [scheduledAt, setScheduledAt] = useState<number | null>(null);
     const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, lastSeen: any }>>({});
@@ -109,16 +111,19 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 groupId,
                 user.uid,
                 group.name,
-                'Rally',
+                isPollRally ? 'Decision Poll' : 'Rally',
                 selectedMembers,
                 callReason.trim() || group.description || 'Rally Needed!',
                 priority,
-                scheduledAt
+                scheduledAt,
+                isPollRally ? pollOptions.filter(o => o.trim()) : undefined
             );
             setShowCallModal(false);
             setCallReason('');
             setPriority('casual');
             setScheduledAt(null);
+            setIsPollRally(false);
+            setPollOptions(['', '']);
         } catch (e: any) {
             Alert.alert("Call Failed", "Check your connection.");
         } finally {
@@ -520,48 +525,97 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                         <Text style={styles.mSub}>{selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''} will be notified</Text>
                         
                         <View style={styles.priorityRow}>
-                            {(['casual', 'priority', 'urgent'] as const).map((p) => (
-                                <TouchableOpacity 
-                                    key={p} 
-                                    style={[styles.priorityTab, priority === p && styles.priorityTabActive, priority === p && p === 'urgent' && { backgroundColor: '#ef4444' }]}
-                                    onPress={() => setPriority(p)}
-                                >
-                                    <Text style={[styles.priorityTabText, priority === p && styles.priorityTabTextActive]}>{p.toUpperCase()}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            <TouchableOpacity style={[styles.priorityTab, !isPollRally && styles.priorityTabActive]} onPress={() => setIsPollRally(false)}>
+                                <Text style={[styles.priorityTabText, !isPollRally && styles.priorityTabTextActive]}>LOUD RALLY</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.priorityTab, isPollRally && styles.priorityTabActive]} onPress={() => setIsPollRally(true)}>
+                                <Text style={[styles.priorityTabText, isPollRally && styles.priorityTabTextActive]}>DECISION POLL</Text>
+                            </TouchableOpacity>
                         </View>
 
-                        <View style={styles.scheduleRow}>
-                            <TouchableOpacity 
-                                style={[styles.schedBtn, scheduledAt === null && styles.schedBtnActive]} 
-                                onPress={() => setScheduledAt(null)}
-                            >
-                                <Text style={styles.schedBtnText}>NOW</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
-                                onPress={() => {
-                                    const next = (scheduledAt || Date.now()) + 900000;
-                                    setScheduledAt(next);
-                                }}
-                            >
-                                <Text style={styles.schedBtnText}>{scheduledAt ? `IN ${Math.round((scheduledAt - Date.now())/60000)} MIN` : '+15 MIN'}</Text>
-                            </TouchableOpacity>
-                            {scheduledAt && (
-                                <TouchableOpacity style={styles.schedBtn} onPress={() => setScheduledAt(null)}>
-                                    <XCircle color="#fff" size={14} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        {!isPollRally ? (
+                            <>
+                                <View style={styles.priorityRow}>
+                                    {(['casual', 'priority', 'urgent'] as const).map((p) => (
+                                        <TouchableOpacity 
+                                            key={p} 
+                                            style={[styles.priorityTab, priority === p && styles.priorityTabActive, priority === p && p === 'urgent' && { backgroundColor: '#ef4444' }]}
+                                            onPress={() => setPriority(p)}
+                                        >
+                                            <Text style={[styles.priorityTabText, priority === p && styles.priorityTabTextActive]}>{p.toUpperCase()}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <View style={styles.scheduleRow}>
+                                    <TouchableOpacity 
+                                        style={[styles.schedBtn, scheduledAt === null && styles.schedBtnActive]} 
+                                        onPress={() => setScheduledAt(null)}
+                                    >
+                                        <Text style={styles.schedBtnText}>NOW</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.schedBtn, scheduledAt !== null && styles.schedBtnActive]} 
+                                        onPress={() => {
+                                            const next = (scheduledAt || Date.now()) + 900000;
+                                            setScheduledAt(next);
+                                        }}
+                                    >
+                                        <Text style={styles.schedBtnText}>{scheduledAt ? `IN ${Math.round((scheduledAt - Date.now())/60000)} MIN` : '+15 MIN'}</Text>
+                                    </TouchableOpacity>
+                                    {scheduledAt && (
+                                        <TouchableOpacity style={styles.schedBtn} onPress={() => setScheduledAt(null)}>
+                                            <XCircle color="#fff" size={14} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            </>
+                        ) : null}
 
                         <TextInput
                             style={styles.mInput}
-                            placeholder="Reason for call (e.g. Lunch? Game night?)"
+                            placeholder={isPollRally ? "Poll Question (e.g. Where for dinner?)" : "Reason for call (e.g. Lunch? Game night?)"}
                             placeholderTextColor="#555"
                             value={callReason}
                             onChangeText={setCallReason}
                             multiline
                         />
+
+                        {isPollRally && (
+                            <View style={{ marginBottom: 20 }}>
+                                {pollOptions.map((opt, i) => (
+                                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                        <TextInput
+                                            style={[styles.mInput, { height: 45, marginBottom: 0, flex: 1, textAlignVertical: 'center' }]}
+                                            placeholder={`Option ${i + 1}`}
+                                            placeholderTextColor="#555"
+                                            value={opt}
+                                            onChangeText={(text) => {
+                                                const newOpts = [...pollOptions];
+                                                newOpts[i] = text;
+                                                setPollOptions(newOpts);
+                                            }}
+                                        />
+                                        {pollOptions.length > 2 && (
+                                            <TouchableOpacity 
+                                                onPress={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}
+                                                style={{ padding: 10 }}
+                                            >
+                                                <XCircle color="#ef4444" size={20} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ))}
+                                {pollOptions.length < 5 && (
+                                    <TouchableOpacity 
+                                        style={{ alignSelf: 'flex-start', marginTop: 5, padding: 5 }}
+                                        onPress={() => setPollOptions([...pollOptions, ''])}
+                                    >
+                                        <Text style={{ color: '#7C3AED', fontWeight: 'bold' }}>+ Add Option</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
 
                         <View style={styles.mActions}>
                             <TouchableOpacity style={styles.mBtnCancel} onPress={() => setShowCallModal(false)}>
@@ -575,7 +629,7 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                                 {loadingCall ? (
                                     <ActivityIndicator color="#fff" size="small" />
                                 ) : (
-                                    <Text style={styles.mBtnTxtConfirm}>START RALLY 💥</Text>
+                                    <Text style={styles.mBtnTxtConfirm}>{isPollRally ? 'SEND POLL 🗳️' : 'START RALLY 💥'}</Text>
                                 )}
                             </TouchableOpacity>
                         </View>

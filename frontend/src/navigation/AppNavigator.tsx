@@ -9,6 +9,7 @@ import { CreateGroupScreen, JoinGroupScreen } from '../screens/GroupActions';
 import GroupDetailScreen from '../screens/GroupDetailScreen';
 import RingingScreen from '../screens/RingingScreen';
 import RallyDetailScreen from '../screens/RallyDetailScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 import { navigationRef } from './navigationUtils';
 
@@ -30,6 +31,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="JoinGroup" component={JoinGroupScreen} />
                         <Stack.Screen name="GroupDetail" component={GroupDetailScreen} />
                         <Stack.Screen name="RallyDetail" component={RallyDetailScreen} />
+                        <Stack.Screen name="Settings" component={SettingsScreen} />
                     </>
                 )}
                 {/*
