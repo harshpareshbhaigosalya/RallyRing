@@ -29,6 +29,8 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
     const [showHistory, setShowHistory] = useState(false);
     const [showAddMember, setShowAddMember] = useState(false);
     const [addMemberId, setAddMemberId] = useState('');
+    const [showEditName, setShowEditName] = useState(false);
+    const [editNameText, setEditNameText] = useState('');
 
     useEffect(() => {
         const unsubGroup = firestore().collection('groups').doc(groupId).onSnapshot(doc => {
@@ -204,6 +206,22 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
         }
     };
 
+    // ── Admin: Edit Squad Name ────────────────────────────────────────────
+    const handleSaveName = async () => {
+        if (!editNameText.trim() || editNameText.trim() === group?.name) {
+            setShowEditName(false);
+            return;
+        }
+        try {
+            await firestore().collection('groups').doc(groupId).update({
+                name: editNameText.trim()
+            });
+            setShowEditName(false);
+        } catch (e) {
+            Alert.alert("Error", "Could not update squad name.");
+        }
+    };
+
     // ── Admin: Remove member ──────────────────────────────────────────────
     const handleRemoveMember = (mId: string) => {
         if (mId === user?.uid) return;
@@ -250,7 +268,16 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                 </TouchableOpacity>
 
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
+                    {isAdmin ? (
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => { setEditNameText(group?.name || ''); setShowEditName(true); }}>
+                            <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
+                            <View style={{ marginLeft: 6, backgroundColor: 'rgba(124,58,237,0.2)', padding: 4, borderRadius: 8 }}>
+                                <Text style={{ fontSize: 10 }}>✏️</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={styles.title} numberOfLines={1}>{group?.name}</Text>
+                    )}
                     <Text style={styles.subtitle}>{group?.members?.length} Members {isAdmin && `• ID: ${groupId}`}</Text>
                 </View>
                 {isAdmin && (
@@ -428,6 +455,34 @@ const GroupDetailScreen = ({ route, navigation }: any) => {
                     </TouchableOpacity>
                 )}
             </View>
+
+            {/* ── Edit Squad Name Modal (Admin only) ──────────────────────────── */}
+            <Modal visible={showEditName} transparent animationType="fade">
+                <View style={styles.modalBlur}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.mTitle}>Edit Squad Name</Text>
+                        
+                        <TextInput
+                            style={[styles.mInput, { height: 55, textAlignVertical: 'center' }]}
+                            placeholder="Enter new squad name"
+                            placeholderTextColor="#555"
+                            value={editNameText}
+                            onChangeText={setEditNameText}
+                            autoCapitalize="words"
+                            maxLength={30}
+                        />
+
+                        <View style={styles.mActions}>
+                            <TouchableOpacity style={styles.mBtnCancel} onPress={() => setShowEditName(false)}>
+                                <Text style={styles.mBtnTxtCancel}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.mBtnConfirm} onPress={handleSaveName}>
+                                <Text style={styles.mBtnTxtConfirm}>SAVE NAME</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* ── Add Member Modal (Admin only) ──────────────────────────── */}
             <Modal visible={showAddMember} transparent animationType="fade">

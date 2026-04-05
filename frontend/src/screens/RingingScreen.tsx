@@ -159,6 +159,13 @@ const RingingScreen = ({ route, navigation }: any) => {
         try {
             await notifee.cancelNotification(callId);
             await notifee.stopForegroundService();
+            // NATIVE OVERRIDE: Ensure the Kotlin Native notification is forcefully cancelled
+            if (Platform.OS === 'android') {
+                const { NativeModules } = require('react-native');
+                if (NativeModules.RallyNotification) {
+                    NativeModules.RallyNotification.cancelCallNotification(callId);
+                }
+            }
         } catch (e) { }
     };
 

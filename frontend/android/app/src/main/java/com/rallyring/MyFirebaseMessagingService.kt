@@ -86,7 +86,7 @@ class MyFirebaseMessagingService : ReactNativeFirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(pendingIntent, true)
             .setContentIntent(pendingIntent)
-            .setAutoCancel(false)
+            .setAutoCancel(true)
             .setOngoing(true)
             .setColor(if (isUrgent) -0x10bbbc else -0x83c513) // #ef4444 and #7c3aed approx
 
