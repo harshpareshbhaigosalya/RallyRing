@@ -122,7 +122,7 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
                 // ── Persistence ─────────────────────────────────────────
                 ongoing: true,
                 autoCancel: false,
-                asForegroundService: true,
+                asForegroundService: false, // Changed from true to prevent Android 14 FGS Crash
                 timeoutAfter: undefined,
                 showTimestamp: true,
 
