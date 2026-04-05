@@ -173,18 +173,9 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
 
         const isUrgent = priority === 'urgent';
 
-        // ULTIMATE FALLBACK: Include a "notification" block.
-        // When the app is swiped away (killed), Android heavily battery-optimizes data-only pushes.
-        // Adding a notification block forces Google Play Services to natively intercept and present
-        // the notification, GUARANTEEING it shows up and rings (via channel_id), even if the app's JS context is dead.
-        const title = isUrgent ? `💥 URGENT RALLY: ${callerName.toUpperCase()}` : `🚨 RALLY: ${callerName.toUpperCase()}`;
-        const bodyText = reason ? `"${reason}" in ${groupName}` : `Incoming rally in ${groupName}`;
-        
+        // CRITICAL FOR VOIP CALLING: Do NOT include a "notification" block here.
+        // We rely purely on the "data" payload to wake the app.
         const message = {
-            notification: {
-                title: title,
-                body: bodyText,
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -201,11 +192,6 @@ app.post('/trigger-call', async (req: Request, res: Response) => {
                 priority: 'high' as const, // For Android (FCM HTTP v1)
                 ttl: 0,                   // 0 means deliver immediately
                 directBootOk: true,
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    sound: 'ringtone',
-                    clickAction: 'FCM_PLUGIN_ACTIVITY', // Required to launch the app natively when notification is tapped
-                }
             },
         };
 
@@ -298,14 +284,7 @@ app.post('/test-call', async (req: Request, res: Response) => {
             timeoutAt: Date.now() + 600000
         });
 
-        const title = isUrgent ? `💥 URGENT RALLY: Auto AI Tester` : `🚨 RALLY: Auto AI Tester`;
-        const bodyText = 'Testing the ringing functionality!';
-
         const message = {
-            notification: {
-                title: title,
-                body: bodyText,
-            },
             data: {
                 type: 'INCOMING_CALL',
                 callId,
@@ -323,11 +302,6 @@ app.post('/test-call', async (req: Request, res: Response) => {
                 priority: 'high' as const,
                 ttl: 0,
                 restrictedPackageName: 'com.rallyring',
-                notification: {
-                    channelId: isUrgent ? 'rally-ring-urgent' : 'rally-ring-v21',
-                    sound: 'ringtone',
-                    clickAction: 'FCM_PLUGIN_ACTIVITY',
-                }
             }
         };
 
