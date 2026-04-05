@@ -68,26 +68,30 @@ const RingingScreen = ({ route, navigation }: any) => {
     const startRinging = () => {
         if (isRinging.current || myStatus !== 'pending' || amCaller) return;
 
-        const ringtone = new Sound('ringtone', '', (error) => {
-            if (error) {
-                console.warn('Failed to load sound', error);
-                return;
-            }
-            ringtone.setNumberOfLoops(-1);
-            ringtone.setVolume(isUrgent ? 1.0 : 0.7);
-            ringtone.play((success) => {
-                if (!success) console.warn('Sound playback failed');
+        // ON ANDROID: We rely 100% on the Native Notification channel to loop the ringtone.
+        // If we play it here too, we get terrible dual-overlapping sound.
+        if (Platform.OS === 'ios') {
+            const ringtone = new Sound('ringtone', '', (error) => {
+                if (error) {
+                    console.warn('Failed to load sound', error);
+                    return;
+                }
+                ringtone.setNumberOfLoops(-1);
+                ringtone.setVolume(isUrgent ? 1.0 : 0.7);
+                ringtone.play((success) => {
+                    if (!success) console.warn('Sound playback failed');
+                });
+                isRinging.current = true;
             });
-            isRinging.current = true;
-        });
-        soundRef.current = ringtone;
+            soundRef.current = ringtone;
+        }
         
         const pattern = isUrgent ? [200, 200, 200, 200] : [500, 1000];
         Vibration.vibrate(pattern, true);
     };
 
     const stopSound = () => {
-        if (soundRef.current) {
+        if (Platform.OS === 'ios' && soundRef.current) {
             try { soundRef.current.stop(); soundRef.current.release(); } catch (e) { }
             soundRef.current = null;
         }

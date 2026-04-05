@@ -72,6 +72,12 @@ export async function onMessageReceived(message: FirebaseMessagingTypes.RemoteMe
     try {
         console.log('[NotificationHandler] Displaying call notification:', callId);
 
+        // NATIVE KOTLIN (MyFirebaseMessagingService) ALREADY displays this flawlessly. 
+        // Showing it again via Notifee causes duplicate ringing/notifications.
+        if (require('react-native').Platform.OS === 'android') {
+            return;
+        }
+
         return await notifee.displayNotification({
             id: callId,
             title: isUrgent
